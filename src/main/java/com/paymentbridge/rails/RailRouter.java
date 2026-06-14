@@ -11,14 +11,6 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/**
- * RailRouter — موتور انتخاب rail مناسب.
- *
- * منطق routing:
- * 1. اول rail دقیق بر اساس railType انتخاب می‌شود
- * 2. اگر پیدا نشد، MOCK به عنوان fallback استفاده می‌شود (فقط در MVP)
- * 3. اگر هیچکدام نبود، RailException پرتاب می‌شود
- */
 /*
  * @author Moh Khandan
  * Date: 06/12/2026

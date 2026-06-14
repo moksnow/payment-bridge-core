@@ -7,10 +7,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.UUID;
 
-/**
- * شبیه‌ساز rail واقعی برای MVP.
- * در production جای این را PSP یا CBDC adapter می‌گیرد.
- */
 /*
  * @author Moh Khandan
  * Date: 06/12/2026

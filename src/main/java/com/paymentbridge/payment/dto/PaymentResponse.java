@@ -19,6 +19,7 @@ import java.time.Instant;
 public class PaymentResponse {
 
     private String          id;
+    private String userId;
     private String          idempotencyKey;
     private String          senderAccount;
     private String          receiverAccount;

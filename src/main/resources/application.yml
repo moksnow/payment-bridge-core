@@ -37,6 +37,11 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+app:
+  jwt:
+    secret: change-me-in-production-must-be-at-least-64-characters-long!!
+    expiration-ms: 3600000
+
 logging:
   level:
     com.paymentbridge: DEBUG

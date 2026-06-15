@@ -12,6 +12,7 @@ import com.paymentbridge.rails.RailResult;
 import com.paymentbridge.rails.RailRouter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,21 +35,26 @@ public class PaymentService {
 
     @Transactional
     public PaymentResponse initiate(CreatePaymentRequest req, String idempotencyKey) {
-        log.info("Initiating payment idempotencyKey=[{}]", idempotencyKey);
 
-        // business validation
-        paymentValidator.validate(req);
+        // ── userId از JWT token ──
+        String userId = (String) SecurityContextHolder
+                .getContext().getAuthentication().getPrincipal();
 
-        // Idempotency check — also enforced by a DB unique constraint,
-        // but validated here first.
+        log.info("Initiating payment userId=[{}] idempotencyKey=[{}]", userId, idempotencyKey);
+
+        // ── business validation ──
+        paymentValidator.validate(req, userId);
+
+        // ── idempotency check ──
         if (paymentRepository.findByIdempotencyKey(idempotencyKey).isPresent()) {
             throw new DuplicateRequestException(idempotencyKey);
         }
 
         // Create and Save Payment with PENDING Status
         Payment payment = Payment.builder()
+                .userId(userId)
                 .idempotencyKey(idempotencyKey)
-                .senderAccount(req.getSenderAccount())
+                .senderAccount(userId)
                 .receiverAccount(req.getReceiverAccount())
                 .amount(req.getAmount())
                 .currency(req.getCurrency())
@@ -56,7 +62,6 @@ public class PaymentService {
                 .description(req.getDescription())
                 .build();
         paymentRepository.save(payment);
-        log.debug("Payment saved with status PENDING id=[{}]", payment.getId());
 
         // Forward Request to the Rail
         payment.markProcessing();
@@ -68,7 +73,7 @@ public class PaymentService {
             payment.markCompleted(result.getExternalRef());
             paymentRepository.save(payment);
             ledgerService.postPayment(payment);
-            log.info("Payment [{}] COMPLETED externalRef=[{}]", payment.getId(), result.getExternalRef());
+            log.info("Payment [{}] COMPLETED", payment.getId());
         } else {
             payment.markFailed(result.getFailureCode() + ": " + result.getFailureMessage());
             paymentRepository.save(payment);
@@ -87,7 +92,9 @@ public class PaymentService {
 
     @Transactional(readOnly = true)
     public List<PaymentResponse> getAll() {
-        return paymentRepository.findAll()
+        String userId = (String) SecurityContextHolder
+                .getContext().getAuthentication().getPrincipal();
+        return paymentRepository.findByUserId(userId)
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -96,6 +103,7 @@ public class PaymentService {
     private PaymentResponse toResponse(Payment p) {
         return PaymentResponse.builder()
                 .id(p.getId())
+                .userId(p.getUserId())
                 .idempotencyKey(p.getIdempotencyKey())
                 .senderAccount(p.getSenderAccount())
                 .receiverAccount(p.getReceiverAccount())

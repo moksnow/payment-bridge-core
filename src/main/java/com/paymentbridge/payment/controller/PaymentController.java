@@ -5,6 +5,7 @@ import com.paymentbridge.payment.dto.CreatePaymentRequest;
 import com.paymentbridge.payment.dto.PaymentResponse;
 import com.paymentbridge.payment.service.PaymentService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ import java.util.List;
 @RequestMapping(AppConstants.PAYMENTS_PATH)
 @RequiredArgsConstructor
 @Tag(name = "Payments", description = "Payment Bridge core API")
+@SecurityRequirement(name = "bearerAuth")
 public class PaymentController {
 
     private final PaymentService paymentService;
@@ -49,7 +51,7 @@ public class PaymentController {
     }
 
     @GetMapping
-    @Operation(summary = "Get all payments")
+    @Operation(summary = "Get my payments")
     public ResponseEntity<List<PaymentResponse>> getAll() {
         return ResponseEntity.ok(paymentService.getAll());
     }

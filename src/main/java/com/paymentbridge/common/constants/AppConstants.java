@@ -7,13 +7,16 @@ package com.paymentbridge.common.constants;
  */
 public final class AppConstants {
 
-    private AppConstants() {}
-
-    public static final String API_V1           = "/v1";
-    public static final String PAYMENTS_PATH    = API_V1 + "/payments";
-    public static final String LEDGER_PATH      = API_V1 + "/ledger";
+    public static final String API_V1 = "/v1";
+    public static final String AUTH_PATH = API_V1 + "/auth";
+    public static final String PAYMENTS_PATH = API_V1 + "/payments";
+    public static final String LEDGER_PATH = API_V1 + "/ledger";
     public static final String IDEMPOTENCY_HEADER = "X-Idempotency-Key";
-
+    public static final String AUTH_HEADER = "Authorization";
+    public static final String BEARER_PREFIX = "Bearer ";
     public static final String ACCOUNT_SUSPENSE = "SYS-SUSPENSE";
-    public static final String ACCOUNT_FEE      = "SYS-FEE";
+    public static final String ACCOUNT_FEE = "SYS-FEE";
+
+    private AppConstants() {
+    }
 }

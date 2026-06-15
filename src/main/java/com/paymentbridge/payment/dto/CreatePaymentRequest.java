@@ -15,8 +15,7 @@ import java.math.BigDecimal;
 @Data
 public class CreatePaymentRequest {
 
-    @NotBlank(message = "Sender account is required")
-    private String senderAccount;
+    // senderAccount حذف شد — از JWT token خونده می‌شه
 
     @NotBlank(message = "Receiver account is required")
     private String receiverAccount;

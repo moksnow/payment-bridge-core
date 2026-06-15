@@ -53,6 +53,9 @@ public class Payment {
     @Builder.Default
     private PaymentStatus status = PaymentStatus.PENDING;
 
+    @Column(name = "user_id")
+    private String userId;
+
     @Column(length = 500)
     private String description;
 

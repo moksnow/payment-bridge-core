@@ -28,27 +28,27 @@ public class PaymentValidator {
 
     // Determines which currencies are supported by each rail.
     private static final Map<PaymentRailType, Set<Currency>> RAIL_CURRENCY_SUPPORT = Map.of(
-            PaymentRailType.MOCK,         Set.of(Currency.values()),  // mock همه رو support می‌کنه
+            PaymentRailType.MOCK, Set.of(Currency.values()),
             PaymentRailType.INTERNAL,     Set.of(Currency.USD, Currency.EUR, Currency.GBP),
             PaymentRailType.CBDC_SANDBOX, Set.of(Currency.USDC, Currency.USDT)
     );
 
-    public void validate(CreatePaymentRequest req) {
+    /**
+     * @param req    درخواست پرداخت
+     * @param userId userId از JWT — برای چک sender≠receiver
+     */
+    public void validate(CreatePaymentRequest req, String userId) {
 
         // Amount Limits
         if (req.getAmount().compareTo(MIN_AMOUNT) < 0) {
-            throw new InvalidPaymentException(
-                    "Amount must be at least " + MIN_AMOUNT);
+            throw new InvalidPaymentException("Amount must be at least " + MIN_AMOUNT);
         }
         if (req.getAmount().compareTo(MAX_AMOUNT) > 0) {
-            throw new InvalidPaymentException(
-                    "Amount exceeds maximum allowed: " + MAX_AMOUNT);
+            throw new InvalidPaymentException("Amount exceeds maximum allowed: " + MAX_AMOUNT);
         }
 
-        // Sender and Receiver Cannot Be the Same
-        if (req.getSenderAccount().equalsIgnoreCase(req.getReceiverAccount())) {
-            throw new InvalidPaymentException(
-                    "Sender and receiver accounts cannot be the same");
+        if (req.getReceiverAccount().equalsIgnoreCase(userId)) {
+            throw new InvalidPaymentException("Cannot send payment to yourself");
         }
 
         // rail/currency compatibility

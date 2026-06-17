@@ -15,7 +15,8 @@ import java.util.Set;
  * Bean Validation (@NotNull, etc.) is handled in the DTO.
  * Only business rules are checked here.
  */
-/*
+
+/**
  * @author Moh Khandan
  * Date: 06/12/2026
  * Time: 16:37 PM
@@ -33,10 +34,6 @@ public class PaymentValidator {
             PaymentRailType.CBDC_SANDBOX, Set.of(Currency.USDC, Currency.USDT)
     );
 
-    /**
-     * @param req    درخواست پرداخت
-     * @param userId userId از JWT — برای چک sender≠receiver
-     */
     public void validate(CreatePaymentRequest req, String userId) {
 
         // Amount Limits

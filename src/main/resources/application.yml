@@ -45,4 +45,9 @@ app:
 logging:
   level:
     com.paymentbridge: DEBUG
-    org.hibernate.SQL: error
+    org.hibernate.SQL: DEBUG
+
+  rails:
+    stripe:
+      api-key: ${STRIPE_API_KEY:sk_test_your_key_here}
+      webhook-secret: ${STRIPE_WEBHOOK_SECRET:}

@@ -1,8 +1,3 @@
-/**
- * @author Moh Khandan
- * Date: 5/1/2026
- * Time: 5:37 PM
- */
 package com.paymentbridge.user.repository;
 
 import com.paymentbridge.user.entity.User;
@@ -11,7 +6,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
-/*
+/**
  * @author Moh Khandan
  * Date: 06/12/2026
  * Time: 16:37 PM

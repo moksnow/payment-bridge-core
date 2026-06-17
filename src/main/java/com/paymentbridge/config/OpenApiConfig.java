@@ -7,7 +7,7 @@ import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/*
+/**
  * @author Moh Khandan
  * Date: 06/12/2026
  * Time: 16:37 PM

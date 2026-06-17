@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/*
+/**
  * @author Moh Khandan
  * Date: 06/12/2026
  * Time: 16:37 PM
@@ -32,19 +32,19 @@ public class RailRouter {
         PaymentRailType requestedType = payment.getRailType();
 
         PaymentRail rail = railMap.get(requestedType);
-        if (rail != null && rail.supports(payment)) {
-            log.debug("Routing payment [{}] to rail [{}]", payment.getId(), requestedType);
-            return rail;
+
+        if (rail == null) {
+            throw new RailException(requestedType,
+                    "No rail registered for type [" + requestedType + "]");
         }
 
-        PaymentRail mockRail = railMap.get(PaymentRailType.MOCK);
-        if (mockRail != null) {
-            log.warn("Rail [{}] not available, falling back to MOCK for payment [{}]",
-                    requestedType, payment.getId());
-            return mockRail;
+        if (!rail.supports(payment)) {
+            throw new RailException(requestedType,
+                    "Rail [" + requestedType + "] does not support this payment " +
+                            "(currency: " + payment.getCurrency() + ")");
         }
 
-        throw new RailException(requestedType,
-                "No rail available for type [" + requestedType + "]");
+        log.debug("Routing payment [{}] to rail [{}]", payment.getId(), requestedType);
+        return rail;
     }
 }

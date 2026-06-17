@@ -1,8 +1,3 @@
-/**
- * @author Moh Khandan
- * Date: 5/1/2026
- * Time: 5:37 PM
- */
 package com.paymentbridge.security;
 
 import io.jsonwebtoken.Claims;
@@ -19,7 +14,7 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
-/*
+/**
  * @author Moh Khandan
  * Date: 06/12/2026
  * Time: 16:37 PM

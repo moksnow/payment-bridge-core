@@ -1,6 +1,5 @@
 package com.paymentbridge.ledger.service;
 
-import com.paymentbridge.common.constants.AppConstants;
 import com.paymentbridge.ledger.dto.LedgerEntryResponse;
 import com.paymentbridge.ledger.entity.LedgerEntry;
 import com.paymentbridge.ledger.repository.LedgerEntryRepository;
@@ -13,11 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 /**
- * تنها سرویسی که مجاز به نوشتن ledger entries است.
- * هر پرداخت دقیقاً دو entry ایجاد می‌کند: DEBIT + CREDIT
- */
-
-/*
  * @author Moh Khandan
  * Date: 06/12/2026
  * Time: 16:37 PM

@@ -1,8 +1,3 @@
-/**
- * @author Moh Khandan
- * Date: 5/1/2026
- * Time: 5:37 PM
- */
 package com.paymentbridge.security;
 
 import lombok.RequiredArgsConstructor;
@@ -17,7 +12,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-/*
+/**
  * @author Moh Khandan
  * Date: 06/12/2026
  * Time: 16:37 PM

@@ -29,24 +29,24 @@ public class LedgerService {
 
         LedgerEntry debit = LedgerEntry.debit(
                 payment.getId(),
-                payment.getSenderAccount(),
+                payment.getSenderWalletAccount(),
                 payment.getAmount(),
                 payment.getCurrency(),
-                "Payment sent to: " + payment.getReceiverAccount()
+                "Payment sent to: " + payment.getReceiverWalletAccount()
         );
 
         LedgerEntry credit = LedgerEntry.credit(
                 payment.getId(),
-                payment.getReceiverAccount(),
+                payment.getReceiverWalletAccount(),
                 payment.getAmount(),
                 payment.getCurrency(),
-                "Payment received from: " + payment.getSenderAccount()
+                "Payment received from: " + payment.getSenderWalletAccount()
         );
 
         ledgerEntryRepository.save(debit);
         ledgerEntryRepository.save(credit);
 
-        log.info("Ledger entries posted for payment [{}] — DEBIT [{}] CREDIT [{}]",
+        log.info("Ledger posted payment=[{}] DEBIT=[{}] CREDIT=[{}]",
                 payment.getId(), debit.getId(), credit.getId());
     }
 

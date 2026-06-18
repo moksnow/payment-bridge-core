@@ -15,10 +15,8 @@ import java.math.BigDecimal;
 @Data
 public class CreatePaymentRequest {
 
-    // senderAccount حذف شد — از JWT token خونده می‌شه
-
-    @NotBlank(message = "Receiver account is required")
-    private String receiverAccount;
+    @NotBlank(message = "Receiver wallet account code is required")
+    private String receiverWalletAccountCode;
 
     @NotNull(message = "Amount is required")
     @DecimalMin(value = "0.01", message = "Amount must be greater than 0")

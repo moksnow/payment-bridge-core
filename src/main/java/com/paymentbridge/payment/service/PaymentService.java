@@ -10,6 +10,7 @@ import com.paymentbridge.payment.repository.PaymentRepository;
 import com.paymentbridge.payment.validator.PaymentValidator;
 import com.paymentbridge.rails.RailResult;
 import com.paymentbridge.rails.RailRouter;
+import com.paymentbridge.wallet.service.WalletService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -29,20 +30,20 @@ import java.util.List;
 public class PaymentService {
 
     private final PaymentRepository paymentRepository;
-    private final LedgerService     ledgerService;
-    private final RailRouter        railRouter;
-    private final PaymentValidator  paymentValidator;
+    private final LedgerService ledgerService;
+    private final RailRouter railRouter;
+    private final PaymentValidator paymentValidator;
+    private final WalletService walletService;
 
     @Transactional
     public PaymentResponse initiate(CreatePaymentRequest req, String idempotencyKey) {
 
-        // ── userId از JWT token ──
         String userId = (String) SecurityContextHolder
                 .getContext().getAuthentication().getPrincipal();
 
         log.info("Initiating payment userId=[{}] idempotencyKey=[{}]", userId, idempotencyKey);
 
-        // ── business validation ──
+        // ── validation ──
         paymentValidator.validate(req, userId);
 
         // ── idempotency check ──
@@ -50,12 +51,19 @@ public class PaymentService {
             throw new DuplicateRequestException(idempotencyKey);
         }
 
-        // Create and Save Payment with PENDING Status
+        // ── balance check ──
+        walletService.assertSufficientBalance(userId, req.getCurrency(), req.getAmount());
+
+        // ── ledgerAccountCode های sender و receiver ──
+        String senderAccountCode = walletService.getLedgerAccountCode(userId, req.getCurrency());
+        String receiverAccountCode = req.getReceiverWalletAccountCode();
+
+        // ── ساخت payment ──
         Payment payment = Payment.builder()
                 .userId(userId)
                 .idempotencyKey(idempotencyKey)
-                .senderAccount(userId)
-                .receiverAccount(req.getReceiverAccount())
+                .senderWalletAccount(senderAccountCode)
+                .receiverWalletAccount(receiverAccountCode)
                 .amount(req.getAmount())
                 .currency(req.getCurrency())
                 .railType(req.getRailType())
@@ -105,8 +113,8 @@ public class PaymentService {
                 .id(p.getId())
                 .userId(p.getUserId())
                 .idempotencyKey(p.getIdempotencyKey())
-                .senderAccount(p.getSenderAccount())
-                .receiverAccount(p.getReceiverAccount())
+                .senderWalletAccount(p.getSenderWalletAccount())
+                .receiverWalletAccount(p.getReceiverWalletAccount())
                 .amount(p.getAmount())
                 .currency(p.getCurrency())
                 .railType(p.getRailType())

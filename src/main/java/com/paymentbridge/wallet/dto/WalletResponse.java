@@ -1,4 +1,4 @@
-package com.paymentbridge.ledger.dto;
+package com.paymentbridge.wallet.dto;
 
 import com.paymentbridge.common.enums.Currency;
 import lombok.Builder;
@@ -9,19 +9,16 @@ import java.time.Instant;
 
 /**
  * @author Moh Khandan
- * Date: 06/12/2026
- * Time: 16:37 PM
+ * Date: 6/18/2026
+ * Time: 9:25 AM
  */
 @Data
 @Builder
-public class LedgerEntryResponse {
-
+public class WalletResponse {
     private String id;
-    private String paymentId;
-    private String accountCode;
-    private String entryType;
-    private BigDecimal amount;
+    private String userId;
     private Currency currency;
-    private String description;
+    private BigDecimal balance;
+    private String ledgerAccountCode;
     private Instant createdAt;
 }

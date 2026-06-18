@@ -67,8 +67,8 @@ public class StripeRail implements PaymentRail {
                     .setCurrency(payment.getCurrency().name().toLowerCase())
                     .setDescription(payment.getDescription())
                     .putMetadata("payment_id", payment.getId())
-                    .putMetadata("sender_account", payment.getSenderAccount())
-                    .putMetadata("receiver_account", payment.getReceiverAccount())
+                    .putMetadata("sender_account",    payment.getSenderWalletAccount())
+                    .putMetadata("receiver_account",  payment.getReceiverWalletAccount())
                     .putMetadata("idempotency_key", payment.getIdempotencyKey())
                     .setConfirm(false)
                     .build();

@@ -8,15 +8,15 @@ package com.paymentbridge.rails;
 public class RailResult {
 
     private final boolean success;
-    private final String  externalRef;
-    private final String  failureCode;
-    private final String  failureMessage;
+    private final String externalRef;
+    private final String failureCode;
+    private final String failureMessage;
 
     private RailResult(boolean success, String externalRef,
                        String failureCode, String failureMessage) {
-        this.success        = success;
-        this.externalRef    = externalRef;
-        this.failureCode    = failureCode;
+        this.success = success;
+        this.externalRef = externalRef;
+        this.failureCode = failureCode;
         this.failureMessage = failureMessage;
     }
 
@@ -28,8 +28,19 @@ public class RailResult {
         return new RailResult(false, null, code, message);
     }
 
-    public boolean isSuccess()       { return success; }
-    public String getExternalRef()   { return externalRef; }
-    public String getFailureCode()   { return failureCode; }
-    public String getFailureMessage(){ return failureMessage; }
+    public boolean isSuccess() {
+        return success;
+    }
+
+    public String getExternalRef() {
+        return externalRef;
+    }
+
+    public String getFailureCode() {
+        return failureCode;
+    }
+
+    public String getFailureMessage() {
+        return failureMessage;
+    }
 }

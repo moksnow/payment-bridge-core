@@ -4,13 +4,15 @@ import com.paymentbridge.common.enums.Currency;
 import com.paymentbridge.common.enums.PaymentRailType;
 import com.paymentbridge.exception.InvalidPaymentException;
 import com.paymentbridge.payment.dto.CreatePaymentRequest;
+import com.paymentbridge.wallet.service.WalletService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Set;
 
-/**
+/*
  * Business validation logic before sending to Rail.
  * Bean Validation (@NotNull, etc.) is handled in the DTO.
  * Only business rules are checked here.
@@ -22,6 +24,7 @@ import java.util.Set;
  * Time: 16:37 PM
  */
 @Component
+@RequiredArgsConstructor
 public class PaymentValidator {
 
     private static final BigDecimal MAX_AMOUNT = new BigDecimal("1000000");
@@ -29,10 +32,12 @@ public class PaymentValidator {
 
     // Determines which currencies are supported by each rail.
     private static final Map<PaymentRailType, Set<Currency>> RAIL_CURRENCY_SUPPORT = Map.of(
-            PaymentRailType.MOCK, Set.of(Currency.values()),
-            PaymentRailType.INTERNAL,     Set.of(Currency.USD, Currency.EUR, Currency.GBP),
+            PaymentRailType.MOCK,         Set.of(Currency.values()),
+            PaymentRailType.STRIPE,       Set.of(Currency.USD, Currency.EUR, Currency.GBP),
             PaymentRailType.CBDC_SANDBOX, Set.of(Currency.USDC, Currency.USDT)
     );
+
+    private final WalletService walletService;
 
     public void validate(CreatePaymentRequest req, String userId) {
 
@@ -41,11 +46,12 @@ public class PaymentValidator {
             throw new InvalidPaymentException("Amount must be at least " + MIN_AMOUNT);
         }
         if (req.getAmount().compareTo(MAX_AMOUNT) > 0) {
-            throw new InvalidPaymentException("Amount exceeds maximum allowed: " + MAX_AMOUNT);
+            throw new InvalidPaymentException("Amount exceeds maximum: " + MAX_AMOUNT);
         }
 
-        if (req.getReceiverAccount().equalsIgnoreCase(userId)) {
-            throw new InvalidPaymentException("Cannot send payment to yourself");
+        String senderAccountCode = walletService.getLedgerAccountCode(userId, req.getCurrency());
+        if (senderAccountCode.equals(req.getReceiverWalletAccountCode())) {
+            throw new InvalidPaymentException("Cannot send payment to your own wallet");
         }
 
         // rail/currency compatibility

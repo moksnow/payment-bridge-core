@@ -18,18 +18,18 @@ import java.time.Instant;
 @Builder
 public class PaymentResponse {
 
-    private String          id;
+    private String id;
     private String userId;
-    private String          idempotencyKey;
-    private String          senderAccount;
-    private String          receiverAccount;
-    private BigDecimal      amount;
-    private Currency        currency;
+    private String idempotencyKey;
+    private String senderWalletAccount;
+    private String receiverWalletAccount;
+    private BigDecimal amount;
+    private Currency currency;
     private PaymentRailType railType;
-    private PaymentStatus   status;
-    private String          description;
-    private String          failureReason;
-    private String          externalRef;
-    private Instant         createdAt;
-    private Instant         updatedAt;
+    private PaymentStatus status;
+    private String description;
+    private String failureReason;
+    private String externalRef;
+    private Instant createdAt;
+    private Instant updatedAt;
 }

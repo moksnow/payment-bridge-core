@@ -20,7 +20,5 @@ public interface PaymentRepository extends JpaRepository<Payment, String> {
 
     List<Payment> findByStatus(PaymentStatus status);
 
-    List<Payment> findBySenderAccount(String senderAccount);
-
     List<Payment> findByUserId(String userId);
 }

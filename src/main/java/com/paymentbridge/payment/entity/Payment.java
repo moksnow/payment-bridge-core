@@ -28,14 +28,24 @@ public class Payment {
     @Column(nullable = false, updatable = false)
     private String id;
 
+    @Column(name = "user_id", nullable = false)
+    private String userId;
+
     @Column(name = "idempotency_key", nullable = false, unique = true, length = 100)
     private String idempotencyKey;
 
-    @Column(name = "sender_account", nullable = false, length = 100)
-    private String senderAccount;
+    /**
+     * ledgerAccountCode sender wallet — for example, "WALLET-{userId}-USD"
+     * It comes from the sender's wallet, not directly from the request
+     */
+    @Column(name = "sender_wallet_account", nullable = false, length = 100)
+    private String senderWalletAccount;
 
-    @Column(name = "receiver_account", nullable = false, length = 100)
-    private String receiverAccount;
+    /**
+     * receiver's ledgerAccountCode wallet
+     */
+    @Column(name = "receiver_wallet_account", nullable = false, length = 100)
+    private String receiverWalletAccount;
 
     @Column(nullable = false, precision = 30, scale = 10)
     private BigDecimal amount;
@@ -52,9 +62,6 @@ public class Payment {
     @Column(nullable = false, length = 30)
     @Builder.Default
     private PaymentStatus status = PaymentStatus.PENDING;
-
-    @Column(name = "user_id")
-    private String userId;
 
     @Column(length = 500)
     private String description;
@@ -73,15 +80,11 @@ public class Payment {
 
     @PrePersist
     public void prePersist() {
-        if (this.id == null) {
-            this.id = UUID.randomUUID().toString();
-        }
+        if (this.id == null) this.id = UUID.randomUUID().toString();
         Instant now = Instant.now();
         this.createdAt = now;
         this.updatedAt = now;
-        if (this.status == null) {
-            this.status = PaymentStatus.PENDING;
-        }
+        if (this.status == null) this.status = PaymentStatus.PENDING;
     }
 
     @PreUpdate
@@ -96,12 +99,12 @@ public class Payment {
     }
 
     public void markCompleted(String externalRef) {
-        this.status      = PaymentStatus.COMPLETED;
+        this.status = PaymentStatus.COMPLETED;
         this.externalRef = externalRef;
     }
 
     public void markFailed(String reason) {
-        this.status        = PaymentStatus.FAILED;
+        this.status = PaymentStatus.FAILED;
         this.failureReason = reason;
     }
 }

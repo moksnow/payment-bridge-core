@@ -24,6 +24,11 @@ public final class Money {
         return new Money(amount, currency);
     }
 
-    public BigDecimal getAmount()   { return amount; }
-    public Currency getCurrency()   { return currency; }
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public Currency getCurrency() {
+        return currency;
+    }
 }

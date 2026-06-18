@@ -2,10 +2,7 @@ package com.paymentbridge.ledger.entity;
 
 import com.paymentbridge.common.enums.Currency;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -28,8 +25,13 @@ public class LedgerEntry {
     @Column(nullable = false, updatable = false)
     private String id;
 
-    @Column(name = "payment_id", nullable = false, updatable = false)
+    @Column(name = "payment_id", updatable = false)
     private String paymentId;
+
+    /** PAYMENT | DEPOSIT */
+    @Column(name = "reference_type", nullable = false, updatable = false, length = 20)
+    @Builder.Default
+    private String referenceType = "PAYMENT";
 
     @Column(name = "account_code", nullable = false, updatable = false, length = 100)
     private String accountCode;
@@ -52,16 +54,17 @@ public class LedgerEntry {
 
     @PrePersist
     public void prePersist() {
-        if (this.id == null) {
-            this.id = UUID.randomUUID().toString();
-        }
+        if (this.id == null) this.id = UUID.randomUUID().toString();
         this.createdAt = Instant.now();
     }
+
+    // ── factory methods ──
 
     public static LedgerEntry debit(String paymentId, String accountCode,
                                     BigDecimal amount, Currency currency, String description) {
         return LedgerEntry.builder()
                 .paymentId(paymentId)
+                .referenceType("PAYMENT")
                 .accountCode(accountCode)
                 .entryType("DEBIT")
                 .amount(amount)
@@ -74,6 +77,20 @@ public class LedgerEntry {
                                      BigDecimal amount, Currency currency, String description) {
         return LedgerEntry.builder()
                 .paymentId(paymentId)
+                .referenceType("PAYMENT")
+                .accountCode(accountCode)
+                .entryType("CREDIT")
+                .amount(amount)
+                .currency(currency)
+                .description(description)
+                .build();
+    }
+
+    public static LedgerEntry deposit(String accountCode,
+                                      BigDecimal amount, Currency currency, String description) {
+        return LedgerEntry.builder()
+                .paymentId(null)
+                .referenceType("DEPOSIT")
                 .accountCode(accountCode)
                 .entryType("CREDIT")
                 .amount(amount)

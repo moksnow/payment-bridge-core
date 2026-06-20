@@ -26,6 +26,8 @@ public class CreatePaymentRequest {
     @NotNull(message = "Currency is required")
     private Currency currency;
 
+    private Currency receiveCurrency;
+
     @NotNull(message = "Rail type is required")
     private PaymentRailType railType;
 

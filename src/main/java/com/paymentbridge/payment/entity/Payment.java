@@ -54,6 +54,16 @@ public class Payment {
     @Column(nullable = false, length = 10)
     private Currency currency;
 
+    @Column(name = "receive_amount", precision = 30, scale = 10)
+    private BigDecimal receiveAmount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "receive_currency", length = 10)
+    private Currency receiveCurrency;
+
+    @Column(name = "fx_rate", precision = 20, scale = 10)
+    private BigDecimal fxRate;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "rail_type", nullable = false, length = 30)
     private PaymentRailType railType;
@@ -92,7 +102,9 @@ public class Payment {
         this.updatedAt = Instant.now();
     }
 
-    // ── business helpers ──
+    public boolean hasFxConversion() {
+        return fxRate != null && receiveCurrency != null && !currency.equals(receiveCurrency);
+    }
 
     public void markProcessing() {
         this.status = PaymentStatus.PROCESSING;

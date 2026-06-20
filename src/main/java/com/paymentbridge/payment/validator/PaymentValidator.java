@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -32,9 +33,9 @@ public class PaymentValidator {
 
     // Determines which currencies are supported by each rail.
     private static final Map<PaymentRailType, Set<Currency>> RAIL_CURRENCY_SUPPORT = Map.of(
-            PaymentRailType.MOCK,         Set.of(Currency.values()),
-            PaymentRailType.STRIPE,       Set.of(Currency.USD, Currency.EUR, Currency.GBP),
-            PaymentRailType.CBDC_SANDBOX, Set.of(Currency.USDC, Currency.USDT)
+            PaymentRailType.MOCK, EnumSet.allOf(Currency.class),
+            PaymentRailType.STRIPE, EnumSet.of(Currency.USD, Currency.EUR, Currency.GBP),
+            PaymentRailType.CBDC_SANDBOX, EnumSet.of(Currency.USDC, Currency.USDT)
     );
 
     private final WalletService walletService;

@@ -2,6 +2,8 @@ package com.paymentbridge.payment.service;
 
 import com.paymentbridge.exception.DuplicateRequestException;
 import com.paymentbridge.exception.NotFoundException;
+import com.paymentbridge.fx.dto.FxConversionResult;
+import com.paymentbridge.fx.service.FxService;
 import com.paymentbridge.ledger.service.LedgerService;
 import com.paymentbridge.payment.dto.CreatePaymentRequest;
 import com.paymentbridge.payment.dto.PaymentResponse;
@@ -34,6 +36,7 @@ public class PaymentService {
     private final RailRouter railRouter;
     private final PaymentValidator paymentValidator;
     private final WalletService walletService;
+    private final FxService fxService;
 
     @Transactional
     public PaymentResponse initiate(CreatePaymentRequest req, String idempotencyKey) {
@@ -54,6 +57,15 @@ public class PaymentService {
         // ── balance check ──
         walletService.assertSufficientBalance(userId, req.getCurrency(), req.getAmount());
 
+        // ── FX conversion (اگه receiveCurrency متفاوت بود) ──
+        FxConversionResult fx = null;
+        if (fxService.needsConversion(req.getCurrency(), req.getReceiveCurrency())) {
+            fx = fxService.convert(req.getCurrency(), req.getReceiveCurrency(), req.getAmount());
+            log.info("FX applied: {} {} → {} {}",
+                    fx.getFromAmount(), fx.getFromCurrency(),
+                    fx.getToAmount(), fx.getToCurrency());
+        }
+
         // ── ledgerAccountCode های sender و receiver ──
         String senderAccountCode = walletService.getLedgerAccountCode(userId, req.getCurrency());
         String receiverAccountCode = req.getReceiverWalletAccountCode();
@@ -66,6 +78,9 @@ public class PaymentService {
                 .receiverWalletAccount(receiverAccountCode)
                 .amount(req.getAmount())
                 .currency(req.getCurrency())
+                .receiveAmount(fx != null ? fx.getToAmount() : req.getAmount())
+                .receiveCurrency(fx != null ? fx.getToCurrency() : req.getCurrency())
+                .fxRate(fx != null ? fx.getRate() : null)
                 .railType(req.getRailType())
                 .description(req.getDescription())
                 .build();
@@ -117,6 +132,9 @@ public class PaymentService {
                 .receiverWalletAccount(p.getReceiverWalletAccount())
                 .amount(p.getAmount())
                 .currency(p.getCurrency())
+                .receiveAmount(p.getReceiveAmount())
+                .receiveCurrency(p.getReceiveCurrency())
+                .fxRate(p.getFxRate())
                 .railType(p.getRailType())
                 .status(p.getStatus())
                 .description(p.getDescription())

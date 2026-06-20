@@ -1,16 +1,20 @@
 package com.paymentbridge.common.enums;
 
-/**
- * @author Moh Khandan
- * Date: 06/12/2026
- * Time: 16:37 PM
- */
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
+@Getter
+@RequiredArgsConstructor
 public enum Currency {
-    USD,
-    EUR,
-    GBP,
-    AED,
-    TRY,
-    USDT,
-    USDC
+
+    USD("US Dollar", 2),
+    EUR("Euro", 2),
+    GBP("British Pound", 2),
+    AED("UAE Dirham", 2),
+    TRY("Turkish Lira", 2),
+    USDT("Tether USD", 6),
+    USDC("USD Coin", 6);
+
+    private final String displayName;
+    private final int decimalPlaces;
 }

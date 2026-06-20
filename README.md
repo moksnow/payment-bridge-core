@@ -31,8 +31,9 @@ This project explores:
 - wallet and balance management
 - ledger-driven transaction recording
 - payment rail abstraction
+- FX conversion and multi-currency support
 - financial system architecture
-- future FX, compliance, and CBDC concepts
+- future compliance and CBDC concepts
 
 ---
 
@@ -58,6 +59,7 @@ The system currently supports:
 - JWT-based authorization
 - Wallet creation and balance management
 - Payment initiation and processing
+- FX currency conversion (mock and real providers)
 - Stripe sandbox integration
 - Internal ledger recording
 - Rail abstraction for future payment providers
@@ -77,6 +79,11 @@ Wallet
  │
  ▼
 Payment Service
+ │
+ ├── FX Service (optional conversion)
+ │       │
+ │       ├── MockFxRateProvider (default)
+ │       └── ExchangeRatesApiFxProvider (real)
  │
  ▼
 RailRouter
@@ -109,9 +116,11 @@ Initiate Payment
       ↓
 Balance Check
       ↓
+FX Conversion (if receiveCurrency differs)
+      ↓
 RailRouter → MockRail or StripeRail
       ↓
-Record Ledger Entry
+Record Ledger Entry (DEBIT sender / CREDIT receiver)
 ```
 
 ---
@@ -130,7 +139,7 @@ curl -X POST http://localhost:8080/api/v1/auth/register \
   -d '{"email": "user@example.com", "password": "password123"}'
 ```
 
-Save the `token` from the response.
+Save the `token` and `userId` from the response.
 
 ### 2. Create Wallet
 
@@ -148,7 +157,7 @@ curl -X POST http://localhost:8080/api/v1/wallets/deposit \
   -d '{"amount": 1000.00, "currency": "USD"}'
 ```
 
-### 4. Initiate Payment
+### 4. Initiate Payment (same currency)
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/payments \
@@ -164,23 +173,49 @@ curl -X POST http://localhost:8080/api/v1/payments \
   }'
 ```
 
+### 5. Initiate Payment with FX conversion
+
+```bash
+curl -X POST http://localhost:8080/api/v1/payments \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: pay-002" \
+  -d '{
+    "receiverWalletAccountCode": "WALLET-{receiverUserId}-EUR",
+    "amount": 100.00,
+    "currency": "USD",
+    "receiveCurrency": "EUR",
+    "railType": "MOCK",
+    "description": "fx payment"
+  }'
+```
+
+Response includes `receiveAmount`, `receiveCurrency`, and `fxRate`.
+
 Use `railType: STRIPE` to route through Stripe sandbox (requires VPN and API key).
 
-### 5. Check Balance
+### 6. Check Balance
 
 ```bash
 curl -X GET http://localhost:8080/api/v1/wallets \
   -H "Authorization: Bearer <token>"
 ```
 
-### 6. View Ledger
+### 7. View Ledger
 
 ```bash
 curl -X GET http://localhost:8080/api/v1/ledger/payments/{paymentId} \
   -H "Authorization: Bearer <token>"
 ```
 
-### 7. Simulate a Failed Payment
+### 8. View Account History
+
+```bash
+curl -X GET "http://localhost:8080/api/v1/ledger/accounts/WALLET-{userId}-USD" \
+  -H "Authorization: Bearer <token>"
+```
+
+### 9. Simulate a Failed Payment
 
 Add `"fail"` anywhere in the description to trigger a MockRail failure.
 
@@ -188,7 +223,7 @@ Add `"fail"` anywhere in the description to trigger a MockRail failure.
 curl -X POST http://localhost:8080/api/v1/payments \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
-  -H "X-Idempotency-Key: pay-002" \
+  -H "X-Idempotency-Key: pay-003" \
   -d '{
     "receiverWalletAccountCode": "WALLET-{receiverUserId}-USD",
     "amount": 50.00,
@@ -198,15 +233,58 @@ curl -X POST http://localhost:8080/api/v1/payments \
   }'
 ```
 
+### 10. Test duplicate request protection
+
+Send the same `X-Idempotency-Key` twice. The second request returns `409 CONFLICT`.
+
+```bash
+curl -X POST http://localhost:8080/api/v1/payments \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: pay-001" \
+  -d '{
+    "receiverWalletAccountCode": "WALLET-{receiverUserId}-USD",
+    "amount": 100.00,
+    "currency": "USD",
+    "railType": "MOCK"
+  }'
+```
+
+---
+
+## FX Configuration
+
+Switch between mock and real FX provider in `application.yml`:
+
+```yaml
+app:
+  fx:
+    provider: mock                # default — fixed rates, no API key needed
+    # provider: exchangeratesapi  # real rates from exchangeratesapi.io
+    api-key: your_key_here
+```
+
+Mock rates (relative to USD):
+
+| Currency | Rate  |
+|----------|-------|
+| USD      | 1.00  |
+| EUR      | 0.91  |
+| GBP      | 0.79  |
+| AED      | 3.67  |
+| TRY      | 32.50 |
+| USDT     | 1.00  |
+| USDC     | 1.00  |
+
 ---
 
 ## Implemented Features
 
 ### Payment Core
 - payment creation
-- payment lifecycle handling
+- payment lifecycle (PENDING → PROCESSING → COMPLETED / FAILED)
 - status tracking
-- transaction processing
+- idempotency protection
 
 ### Auth & User
 - user registration
@@ -215,20 +293,30 @@ curl -X POST http://localhost:8080/api/v1/payments \
 - user-linked payment operations
 
 ### Wallet
-- wallet creation
-- balance management
-- wallet ownership model
+
+- wallet creation per currency
+- balance derived from ledger (bank-grade)
+- sandbox deposit endpoint
+
+### FX Engine
+
+- pluggable provider interface
+- MockFxRateProvider (default, no API key)
+- ExchangeRatesApiFxProvider (real rates)
+- cross-rate calculation via EUR base
+- switchable via application.yml
 
 ### StripeRail
 - Stripe Sandbox integration
 - provider abstraction layer
-- payment provider isolation
 - rail-based execution flow
 
 ### Ledger
-- transaction recording
+
+- double-entry accounting (DEBIT + CREDIT)
+- FX-aware credit entries
+- deposit entries without payment reference
 - audit trail support
-- financial event traceability
 
 ---
 
@@ -239,7 +327,7 @@ curl -X POST http://localhost:8080/api/v1/payments \
 ✅ Auth & User
 ✅ StripeRail
 ✅ Wallet
-⏳ FX Engine
+✅ FX Engine
 ⏳ KYC / AML
 ⏳ CBDC Layer
 ```
@@ -250,31 +338,36 @@ curl -X POST http://localhost:8080/api/v1/payments \
 
 ```text
 payment-bridge
-├── auth
+├── config
+├── security
+├── common
+├── exception
 ├── user
 ├── payment
 ├── wallet
 ├── ledger
 ├── rails
-├── common
-├── config
-└── exception
+│   └── stripe
+└── fx
+    ├── dto
+    ├── provider
+    └── service
 ```
 
 ---
 
 ## Next Milestone
 
-### FX Engine
+### KYC / AML
 
-The next major step is introducing currency conversion capabilities.
+The next step is introducing basic compliance checks.
 
 Planned goals:
 
-- multi-currency support
-- exchange rate management
-- conversion workflows
-- currency-aware transactions
+- transaction limit enforcement
+- user verification status
+- suspicious pattern detection
+- compliance event recording
 
 ---
 

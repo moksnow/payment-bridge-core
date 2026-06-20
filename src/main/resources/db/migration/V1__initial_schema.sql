@@ -12,20 +12,23 @@ CREATE TABLE users (
 );
 
 CREATE TABLE payments (
-    id               VARCHAR(36)    PRIMARY KEY,
+                          id               VARCHAR(36) PRIMARY KEY,
     user_id                 VARCHAR(36)    REFERENCES users(id),
-    idempotency_key  VARCHAR(100)   NOT NULL UNIQUE,
+                          idempotency_key  VARCHAR(100)    NOT NULL UNIQUE,
     sender_wallet_account   VARCHAR(100)   NOT NULL,
     receiver_wallet_account VARCHAR(100)   NOT NULL,
-    amount           DECIMAL(30,10) NOT NULL,
-    currency         VARCHAR(10)    NOT NULL,
-    rail_type        VARCHAR(30)    NOT NULL,
-    status           VARCHAR(30)    NOT NULL DEFAULT 'PENDING',
-    description      VARCHAR(500),
-    failure_reason   VARCHAR(500),
-    external_ref     VARCHAR(255),
-    created_at       TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at       TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                          amount           DECIMAL(30, 10) NOT NULL,
+                          currency         VARCHAR(10)     NOT NULL,
+                          receive_amount   DECIMAL(30, 10),
+                          receive_currency VARCHAR(10),
+                          fx_rate          DECIMAL(20, 10),
+                          rail_type        VARCHAR(30)     NOT NULL,
+                          status           VARCHAR(30)     NOT NULL DEFAULT 'PENDING',
+                          description      VARCHAR(500),
+                          failure_reason   VARCHAR(500),
+                          external_ref     VARCHAR(255),
+                          created_at       TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                          updated_at       TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_amount_positive CHECK (amount > 0)
 );
 

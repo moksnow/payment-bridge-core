@@ -25,6 +25,9 @@ public class PaymentResponse {
     private String receiverWalletAccount;
     private BigDecimal amount;
     private Currency currency;
+    private BigDecimal receiveAmount;
+    private Currency receiveCurrency;
+    private BigDecimal fxRate;
     private PaymentRailType railType;
     private PaymentStatus status;
     private String description;

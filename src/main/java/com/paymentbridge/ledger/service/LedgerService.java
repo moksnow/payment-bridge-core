@@ -35,11 +35,14 @@ public class LedgerService {
                 "Payment sent to: " + payment.getReceiverWalletAccount()
         );
 
+        java.math.BigDecimal creditAmount = payment.getReceiveAmount() != null ? payment.getReceiveAmount() : payment.getAmount();
+        com.paymentbridge.common.enums.Currency creditCurrency = payment.getReceiveCurrency() != null ? payment.getReceiveCurrency() : payment.getCurrency();
+
         LedgerEntry credit = LedgerEntry.credit(
                 payment.getId(),
                 payment.getReceiverWalletAccount(),
-                payment.getAmount(),
-                payment.getCurrency(),
+                creditAmount,
+                creditCurrency,
                 "Payment received from: " + payment.getSenderWalletAccount()
         );
 

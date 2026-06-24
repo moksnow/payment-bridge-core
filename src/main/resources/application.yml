@@ -54,6 +54,16 @@ app:
     api-key: ${FX_API_KEY:}
     base-url: http://api.exchangeratesapi.io/v1
 
+  compliance:
+    kyc:
+      unverified-max-tx: 100.00
+      unverified-daily: 500.00
+      basic-max-tx: 5000.00
+      basic-daily: 20000.00
+    aml:
+      round-number-threshold: 5000.00
+      structuring-window-hours: 24
+
 logging:
   level:
     com.paymentbridge: DEBUG

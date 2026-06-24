@@ -32,8 +32,9 @@ This project explores:
 - ledger-driven transaction recording
 - payment rail abstraction
 - FX conversion and multi-currency support
+- KYC and AML compliance rules
 - financial system architecture
-- future compliance and CBDC concepts
+- future CBDC concepts
 
 ---
 
@@ -61,8 +62,9 @@ The system currently supports:
 - Payment initiation and processing
 - FX currency conversion (mock and real providers)
 - Stripe sandbox integration
+- KYC level enforcement per transaction
+- AML daily limit and structuring detection
 - Internal ledger recording
-- Rail abstraction for future payment providers
 
 ---
 
@@ -80,8 +82,13 @@ Wallet
  ▼
 Payment Service
  │
+ ├── KYC Check
+ │       └── KycService (level-based limits)
+ │
+ ├── AML Check
+ │       └── AmlService (daily limit + structuring)
+ │
  ├── FX Service (optional conversion)
- │       │
  │       ├── MockFxRateProvider (default)
  │       └── ExchangeRatesApiFxProvider (real)
  │
@@ -91,9 +98,6 @@ RailRouter
  ├── MockRail (local testing)
  │
  └── StripeRail (sandbox)
-      │
-      ▼
- Stripe Sandbox
       │
       ▼
  Ledger Service
@@ -114,9 +118,13 @@ Deposit Funds
       ↓
 Initiate Payment
       ↓
+KYC Check (transaction limit by level)
+      ↓
 Balance Check
       ↓
 FX Conversion (if receiveCurrency differs)
+      ↓
+AML Check (daily limit + structuring detection)
       ↓
 RailRouter → MockRail or StripeRail
       ↓
@@ -157,7 +165,25 @@ curl -X POST http://localhost:8080/api/v1/wallets/deposit \
   -d '{"amount": 1000.00, "currency": "USD"}'
 ```
 
-### 4. Initiate Payment (same currency)
+### 4. Check KYC Level
+
+```bash
+curl -X GET http://localhost:8080/api/v1/compliance/kyc/me \
+  -H "Authorization: Bearer <token>"
+```
+
+Default level is `UNVERIFIED` — max transaction `100 USD`, daily limit `500 USD`.
+
+### 5. Upgrade KYC Level
+
+```bash
+curl -X PUT http://localhost:8080/api/v1/compliance/kyc/{userId} \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"kycLevel": "BASIC", "notes": "verified manually"}'
+```
+
+### 6. Initiate Payment (same currency)
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/payments \
@@ -173,7 +199,7 @@ curl -X POST http://localhost:8080/api/v1/payments \
   }'
 ```
 
-### 5. Initiate Payment with FX conversion
+### 7. Initiate Payment with FX conversion
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/payments \
@@ -190,34 +216,28 @@ curl -X POST http://localhost:8080/api/v1/payments \
   }'
 ```
 
-Response includes `receiveAmount`, `receiveCurrency`, and `fxRate`.
-
-Use `railType: STRIPE` to route through Stripe sandbox (requires VPN and API key).
-
-### 6. Check Balance
+### 8. Check Balance
 
 ```bash
 curl -X GET http://localhost:8080/api/v1/wallets \
   -H "Authorization: Bearer <token>"
 ```
 
-### 7. View Ledger
+### 9. View Ledger
 
 ```bash
 curl -X GET http://localhost:8080/api/v1/ledger/payments/{paymentId} \
   -H "Authorization: Bearer <token>"
 ```
 
-### 8. View Account History
+### 10. View Account History
 
 ```bash
 curl -X GET "http://localhost:8080/api/v1/ledger/accounts/WALLET-{userId}-USD" \
   -H "Authorization: Bearer <token>"
 ```
 
-### 9. Simulate a Failed Payment
-
-Add `"fail"` anywhere in the description to trigger a MockRail failure.
+### 11. Simulate a Failed Payment
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/payments \
@@ -233,22 +253,27 @@ curl -X POST http://localhost:8080/api/v1/payments \
   }'
 ```
 
-### 10. Test duplicate request protection
-
-Send the same `X-Idempotency-Key` twice. The second request returns `409 CONFLICT`.
+### 12. View AML Flags
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/payments \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -H "X-Idempotency-Key: pay-001" \
-  -d '{
-    "receiverWalletAccountCode": "WALLET-{receiverUserId}-USD",
-    "amount": 100.00,
-    "currency": "USD",
-    "railType": "MOCK"
-  }'
+curl -X GET http://localhost:8080/api/v1/compliance/aml/me \
+  -H "Authorization: Bearer <token>"
 ```
+
+---
+
+## Automated Test
+
+A bash script is available to run the full flow end to end.
+
+```bash
+chmod +x test.sh
+./test.sh
+```
+
+The script registers two users, creates wallets, deposits funds, upgrades KYC, runs a USD payment, runs a USD→EUR payment with FX conversion, checks balances, queries the ledger, simulates a failed payment, and verifies idempotency protection.
+
+Each run uses unique idempotency keys so it can be executed multiple times cleanly.
 
 ---
 
@@ -278,6 +303,25 @@ Mock rates (relative to USD):
 
 ---
 
+## KYC Levels
+
+| Level      | Max Transaction | Daily Limit |
+|------------|----------------|-------------|
+| UNVERIFIED | 100 USD        | 500 USD     |
+| BASIC      | 5,000 USD      | 20,000 USD  |
+| FULL       | 1,000,000 USD  | 1,000,000 USD |
+
+---
+
+## AML Rules
+
+| Rule | Description |
+|------|-------------|
+| Daily Limit | Total daily payments cannot exceed KYC daily limit |
+| Structuring | Round amounts ≥ 5,000 are flagged for review |
+
+---
+
 ## Implemented Features
 
 ### Payment Core
@@ -290,7 +334,6 @@ Mock rates (relative to USD):
 - user registration
 - user authentication
 - JWT-based security
-- user-linked payment operations
 
 ### Wallet
 
@@ -301,21 +344,25 @@ Mock rates (relative to USD):
 ### FX Engine
 
 - pluggable provider interface
-- MockFxRateProvider (default, no API key)
+- MockFxRateProvider (default)
 - ExchangeRatesApiFxProvider (real rates)
-- cross-rate calculation via EUR base
-- switchable via application.yml
 
-### StripeRail
-- Stripe Sandbox integration
-- provider abstraction layer
-- rail-based execution flow
+### Rails
+- MockRail (local testing, fail simulation)
+- StripeRail (Stripe sandbox)
+
+### Compliance
+- KYC level management (UNVERIFIED / BASIC / FULL)
+- transaction limit enforcement per KYC level
+- daily spending limit enforcement
+- AML structuring detection
+- compliance event recording
 
 ### Ledger
 
 - double-entry accounting (DEBIT + CREDIT)
 - FX-aware credit entries
-- deposit entries without payment reference
+- deposit entries
 - audit trail support
 
 ---
@@ -328,7 +375,7 @@ Mock rates (relative to USD):
 ✅ StripeRail
 ✅ Wallet
 ✅ FX Engine
-⏳ KYC / AML
+✅ KYC / AML
 ⏳ CBDC Layer
 ```
 
@@ -341,6 +388,7 @@ payment-bridge
 ├── config
 ├── security
 ├── common
+│   └── enums
 ├── exception
 ├── user
 ├── payment
@@ -348,40 +396,42 @@ payment-bridge
 ├── ledger
 ├── rails
 │   └── stripe
-└── fx
+├── fx
+│   ├── dto
+│   ├── provider
+│   └── service
+└── compliance
+    ├── entity
     ├── dto
-    ├── provider
-    └── service
+    ├── repository
+    ├── service
+    └── controller
 ```
 
 ---
 
 ## Next Milestone
 
-### KYC / AML
+### CBDC Layer
 
-The next step is introducing basic compliance checks.
+The final major step is adding a CBDC abstraction layer.
 
 Planned goals:
 
-- transaction limit enforcement
-- user verification status
-- suspicious pattern detection
-- compliance event recording
+- CBDC rail interface
+- sandbox network connection
+- digital currency settlement
+- bridge between fiat and CBDC
 
 ---
 
 ## Design Principles
-
-The project follows a gradual evolution strategy:
 
 - build the core first
 - keep boundaries clear
 - abstract external providers
 - record every financial event
 - add complexity only when justified
-
-This keeps the architecture understandable, testable, and easy to evolve.
 
 ---
 

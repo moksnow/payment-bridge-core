@@ -1,5 +1,7 @@
 package com.paymentbridge.payment.service;
 
+import com.paymentbridge.compliance.service.AmlService;
+import com.paymentbridge.compliance.service.KycService;
 import com.paymentbridge.exception.DuplicateRequestException;
 import com.paymentbridge.exception.NotFoundException;
 import com.paymentbridge.fx.dto.FxConversionResult;
@@ -37,6 +39,8 @@ public class PaymentService {
     private final PaymentValidator paymentValidator;
     private final WalletService walletService;
     private final FxService fxService;
+    private final KycService        kycService;
+    private final AmlService        amlService;
 
     @Transactional
     public PaymentResponse initiate(CreatePaymentRequest req, String idempotencyKey) {
@@ -46,18 +50,21 @@ public class PaymentService {
 
         log.info("Initiating payment userId=[{}] idempotencyKey=[{}]", userId, idempotencyKey);
 
-        // ── validation ──
+        // ── 1. business validation ──
         paymentValidator.validate(req, userId);
 
-        // ── idempotency check ──
+        // ── 2. idempotency check ──
         if (paymentRepository.findByIdempotencyKey(idempotencyKey).isPresent()) {
             throw new DuplicateRequestException(idempotencyKey);
         }
 
-        // ── balance check ──
+        // ── 3. KYC check ──
+        kycService.assertAllowed(userId, req.getAmount());
+
+        // ── 4. balance check ──
         walletService.assertSufficientBalance(userId, req.getCurrency(), req.getAmount());
 
-        // ── FX conversion (اگه receiveCurrency متفاوت بود) ──
+        // ── 5. FX conversion ──
         FxConversionResult fx = null;
         if (fxService.needsConversion(req.getCurrency(), req.getReceiveCurrency())) {
             fx = fxService.convert(req.getCurrency(), req.getReceiveCurrency(), req.getAmount());
@@ -66,11 +73,10 @@ public class PaymentService {
                     fx.getToAmount(), fx.getToCurrency());
         }
 
-        // ── ledgerAccountCode های sender و receiver ──
+        // ── 6. create payment ──
         String senderAccountCode = walletService.getLedgerAccountCode(userId, req.getCurrency());
         String receiverAccountCode = req.getReceiverWalletAccountCode();
 
-        // ── ساخت payment ──
         Payment payment = Payment.builder()
                 .userId(userId)
                 .idempotencyKey(idempotencyKey)
@@ -86,12 +92,16 @@ public class PaymentService {
                 .build();
         paymentRepository.save(payment);
 
-        // Forward Request to the Rail
+        // ── 7. AML check ──
+        amlService.check(userId, req.getAmount(), payment.getId());
+
+        // ── 8. send to rail ──
         payment.markProcessing();
         paymentRepository.save(payment);
 
         RailResult result = railRouter.route(payment).process(payment);
 
+        // ── 9. result ──
         if (result.isSuccess()) {
             payment.markCompleted(result.getExternalRef());
             paymentRepository.save(payment);

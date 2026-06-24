@@ -41,9 +41,7 @@ check_status() {
 }
 
 json_field() {
-  local json=$1
-  local field=$2
-  echo "$json" | grep -o "\"$field\":\"[^\"]*\"" | head -1 | cut -d'"' -f4
+  echo "$1" | grep -o "\"$2\":\"[^\"]*\"" | head -1 | cut -d'"' -f4
 }
 
 # ============================================================
@@ -54,10 +52,6 @@ print_step "1" "Register Sender User"
 BODY=$(curl -s -X POST "$BASE_URL/v1/auth/register" \
   -H "Content-Type: application/json" \
   -d "{\"email\": \"$SENDER_EMAIL\", \"password\": \"$SENDER_PASS\"}")
-HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/v1/auth/register" \
-  -H "Content-Type: application/json" \
-  -d "{\"email\": \"${SENDER_EMAIL}2\", \"password\": \"$SENDER_PASS\"}")
-
 
 if echo "$BODY" | grep -q "EMAIL_TAKEN"; then
   print_info "Sender already exists, logging in..."
@@ -116,15 +110,12 @@ BODY=$(curl -s -X POST "$BASE_URL/v1/wallets?currency=USD" \
 
 if echo "$BODY" | grep -q "WALLET_EXISTS"; then
   print_info "Sender wallet already exists"
-else
-  HTTP_CODE=$(echo "$BODY" | grep -o '"id":"[^"]*"' | head -1)
-  if [ -n "$HTTP_CODE" ]; then
+elif echo "$BODY" | grep -q '"id"'; then
     print_ok "Sender wallet created"
   else
     print_fail "Wallet creation failed"
     echo "Response: $BODY"
   fi
-fi
 
 SENDER_ACCOUNT="WALLET-${SENDER_USER_ID}-USD"
 print_info "Account code: $SENDER_ACCOUNT"
@@ -156,9 +147,38 @@ print_info "Receiver USD: $RECEIVER_USD_ACCOUNT"
 print_info "Receiver EUR: $RECEIVER_EUR_ACCOUNT"
 
 # ============================================================
-#  STEP 5: Deposit Funds to Sender
+#  STEP 5: Check KYC Level
 # ============================================================
-print_step "5" "Deposit 1000 USD to Sender"
+print_step "5" "Check Sender KYC Level"
+
+BODY=$(curl -s -X GET "$BASE_URL/v1/compliance/kyc/me" \
+  -H "Authorization: Bearer $SENDER_TOKEN")
+
+KYC_LEVEL=$(echo "$BODY" | grep -o '"kycLevel":"[^"]*"' | cut -d'"' -f4)
+MAX_TX=$(echo "$BODY" | grep -o '"maxTransactionAmount":[0-9.]*' | cut -d: -f2)
+print_info "KYC Level: $KYC_LEVEL | Max transaction: $MAX_TX USD"
+
+# ============================================================
+#  STEP 6: Upgrade KYC to BASIC
+# ============================================================
+print_step "6" "Upgrade Sender KYC to BASIC"
+
+BODY=$(curl -s -w "\n%{http_code}" -X PUT \
+  "$BASE_URL/v1/compliance/kyc/$SENDER_USER_ID" \
+  -H "Authorization: Bearer $SENDER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"kycLevel": "BASIC", "notes": "verified manually"}')
+
+HTTP_STATUS=$(echo "$BODY" | tail -1)
+BODY=$(echo "$BODY" | sed '$d')
+check_status "$HTTP_STATUS" 200 "KYC upgrade"
+KYC_LEVEL=$(echo "$BODY" | grep -o '"kycLevel":"[^"]*"' | cut -d'"' -f4)
+print_info "New KYC Level: $KYC_LEVEL"
+
+# ============================================================
+#  STEP 7: Deposit Funds to Sender
+# ============================================================
+print_step "7" "Deposit 1000 USD to Sender"
 
 BODY=$(curl -s -X POST "$BASE_URL/v1/wallets/deposit" \
   -H "Authorization: Bearer $SENDER_TOKEN" \
@@ -169,9 +189,9 @@ BALANCE=$(echo "$BODY" | grep -o '"balance":[0-9.]*' | head -1 | cut -d: -f2)
 print_ok "Deposit done — balance: $BALANCE USD"
 
 # ============================================================
-#  STEP 6: Payment (USD → USD)
+#  STEP 8: Payment (USD → USD)
 # ============================================================
-print_step "6" "Payment — 100 USD to Receiver (MOCK)"
+print_step "8" "Payment — 100 USD to Receiver (MOCK)"
 
 IDEM_KEY="pay-$(date +%s)-001"
 BODY=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/v1/payments" \
@@ -197,9 +217,9 @@ print_info "Payment ID: $PAYMENT_ID"
 print_info "Status: $PAY_STATUS | Ref: $EXTERNAL_REF"
 
 # ============================================================
-#  STEP 7: Payment with FX (USD → EUR)
+#  STEP 9: Payment with FX (USD → EUR)
 # ============================================================
-print_step "7" "Payment with FX — 100 USD → EUR (MOCK)"
+print_step "9" "Payment with FX — 100 USD → EUR (MOCK)"
 
 IDEM_KEY_FX="pay-$(date +%s)-002"
 BODY=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/v1/payments" \
@@ -226,9 +246,9 @@ print_info "FX Rate: $FX_RATE | Receiver gets: $RECEIVE_AMT EUR"
 print_info "Payment ID: $FX_PAYMENT_ID"
 
 # ============================================================
-#  STEP 8: Check Sender Balance
+#  STEP 10: Check Sender Balance
 # ============================================================
-print_step "8" "Check Sender Balance"
+print_step "10" "Check Sender Balance"
 
 BODY=$(curl -s -X GET "$BASE_URL/v1/wallets" \
   -H "Authorization: Bearer $SENDER_TOKEN")
@@ -238,9 +258,9 @@ print_ok "Sender USD balance: $BALANCE"
 echo "$BODY"
 
 # ============================================================
-#  STEP 9: View Ledger for USD Payment
+#  STEP 11: View Ledger for USD Payment
 # ============================================================
-print_step "9" "View Ledger — USD Payment ($PAYMENT_ID)"
+print_step "11" "View Ledger — USD Payment ($PAYMENT_ID)"
 
 BODY=$(curl -s -X GET "$BASE_URL/v1/ledger/payments/$PAYMENT_ID" \
   -H "Authorization: Bearer $SENDER_TOKEN")
@@ -250,9 +270,9 @@ print_ok "Ledger entries found: $ENTRY_COUNT (expected: 2)"
 echo "$BODY"
 
 # ============================================================
-#  STEP 10: View Account History
+#  STEP 12: View Account History
 # ============================================================
-print_step "10" "View Account History — $SENDER_ACCOUNT"
+print_step "12" "View Account History — $SENDER_ACCOUNT"
 
 BODY=$(curl -s -X GET "$BASE_URL/v1/ledger/accounts/$SENDER_ACCOUNT" \
   -H "Authorization: Bearer $SENDER_TOKEN")
@@ -262,9 +282,9 @@ print_ok "Total ledger entries for account: $ENTRY_COUNT"
 echo "$BODY"
 
 # ============================================================
-#  STEP 11: Simulate Failed Payment
+#  STEP 13: Simulate Failed Payment
 # ============================================================
-print_step "11" "Simulate Failed Payment (description contains 'fail')"
+print_step "13" "Simulate Failed Payment (description contains 'fail')"
 
 IDEM_KEY_FAIL="pay-$(date +%s)-003"
 BODY=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/v1/payments" \
@@ -292,9 +312,9 @@ else
 fi
 
 # ============================================================
-#  STEP 12: Test Idempotency
+#  STEP 14: Test Idempotency
 # ============================================================
-print_step "12" "Test Duplicate Idempotency Key"
+print_step "14" "Test Duplicate Idempotency Key"
 
 BODY=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/v1/payments" \
   -H "Authorization: Bearer $SENDER_TOKEN" \
@@ -309,6 +329,18 @@ BODY=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/v1/payments" \
 
 HTTP_STATUS=$(echo "$BODY" | tail -1)
 check_status "$HTTP_STATUS" 409 "Duplicate request blocked"
+
+# ============================================================
+#  STEP 15: View AML Flags
+# ============================================================
+print_step "15" "View AML Flags"
+
+BODY=$(curl -s -X GET "$BASE_URL/v1/compliance/aml/me" \
+  -H "Authorization: Bearer $SENDER_TOKEN")
+
+FLAG_COUNT=$(echo "$BODY" | grep -o '"status"' | wc -l)
+print_ok "AML entries recorded: $FLAG_COUNT"
+echo "$BODY"
 
 # ============================================================
 #  Summary

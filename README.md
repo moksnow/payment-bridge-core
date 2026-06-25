@@ -260,6 +260,56 @@ curl -X GET http://localhost:8080/api/v1/compliance/aml/me \
   -H "Authorization: Bearer <token>"
 ```
 
+### 13. CBDC Transfer (USDC → USDC)
+
+```bash
+# First create USDC wallets and deposit
+curl -X POST "http://localhost:8080/api/v1/wallets?currency=USDC" \
+  -H "Authorization: Bearer <token>"
+
+curl -X POST http://localhost:8080/api/v1/wallets/deposit \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 100.00, "currency": "USDC"}'
+
+curl -X POST http://localhost:8080/api/v1/payments \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: cbdc-001" \
+  -d '{
+    "receiverWalletAccountCode": "WALLET-{receiverUserId}-USDC",
+    "amount": 10.00,
+    "currency": "USDC",
+    "railType": "CBDC_SANDBOX",
+    "description": "cbdc transfer"
+  }'
+```
+
+Response includes `externalRef` with CBDC network transaction ID (e.g. `CBDC-A1B2C3D4E5F6`).
+
+### 14. CBDC Mint (USD → USDC)
+
+```bash
+curl -X POST http://localhost:8080/api/v1/payments \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: cbdc-mint-001" \
+  -d '{
+    "receiverWalletAccountCode": "WALLET-{receiverUserId}-USDC",
+    "amount": 50.00,
+    "currency": "USD",
+    "receiveCurrency": "USDC",
+    "railType": "CBDC_SANDBOX",
+    "description": "mint usdc from usd"
+  }'
+```
+
+### 15. Query CBDC Networks
+
+```bash
+curl -X GET http://localhost:8080/api/cbdc-sandbox/networks
+```
+
 ---
 
 ## Automated Test
@@ -302,6 +352,26 @@ Mock rates (relative to USD):
 | USDC     | 1.00  |
 
 ---
+
+
+## CBDC Bridge Operations
+
+| From    | To      | Operation | Network      | Description                    |
+|---------|---------|-----------|--------------|--------------------------------|
+| USD/EUR | USDC    | MINT      | ECB Sandbox  | Fiat enters digital network    |
+| USD/EUR | USDT    | MINT      | FED Sandbox  | Fiat enters digital network    |
+| USDC    | USD/EUR | REDEEM    | ECB Sandbox  | Digital exits to fiat          |
+| USDT    | USD/EUR | REDEEM    | FED Sandbox  | Digital exits to fiat          |
+| USDC    | USDC    | TRANSFER  | ECB Sandbox  | Same-network transfer          |
+| USDT    | USDT    | TRANSFER  | FED Sandbox  | Same-network transfer          |
+| USDC    | USDT    | SWAP      | BIS mBridge  | Cross-network exchange         |
+| USDT    | USDC    | SWAP      | BIS mBridge  | Cross-network exchange         |
+
+CBDC Sandbox status codes follow ISO 20022 pacs.002:
+- `PDNG` — Pending network confirmation
+- `ACCP` — Accepted by network
+- `STLD` — Settled (final, irreversible)
+- `RJCT` — Rejected (with reason code)
 
 ## KYC Levels
 
@@ -358,6 +428,15 @@ Mock rates (relative to USD):
 - AML structuring detection
 - compliance event recording
 
+
+### CBDC Bridge
+- ISO 20022 messaging (pacs.008 / pacs.002)
+- four operation types: MINT, REDEEM, TRANSFER, SWAP
+- multi-network routing: ECB Sandbox, FED Sandbox, BIS mBridge, Internal
+- bridge logic: fiat↔CBDC and cross-network CBDC↔CBDC
+- sandbox server simulating real CBDC network behavior
+- operation-aware settlement lifecycle (PDNG → ACCP/STLD → RJCT)
+
 ### Ledger
 
 - double-entry accounting (DEBIT + CREDIT)
@@ -410,18 +489,13 @@ payment-bridge
 
 ---
 
-## Next Milestone
+## Architecture Complete
 
-### CBDC Layer
+All planned milestones have been implemented.
 
-The final major step is adding a CBDC abstraction layer.
-
-Planned goals:
-
-- CBDC rail interface
-- sandbox network connection
-- digital currency settlement
-- bridge between fiat and CBDC
+The system now supports the full payment infrastructure stack:
+from JWT auth and wallet management through FX conversion,
+KYC/AML compliance, and CBDC settlement via ISO 20022 messaging.
 
 ---
 

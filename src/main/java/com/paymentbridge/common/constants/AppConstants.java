@@ -7,6 +7,8 @@ package com.paymentbridge.common.constants;
  */
 public final class AppConstants {
 
+    private AppConstants() {}
+
     public static final String API_V1 = "/v1";
     public static final String AUTH_PATH = API_V1 + "/auth";
     public static final String PAYMENTS_PATH = API_V1 + "/payments";
@@ -16,7 +18,4 @@ public final class AppConstants {
     public static final String BEARER_PREFIX = "Bearer ";
     public static final String ACCOUNT_SUSPENSE = "SYS-SUSPENSE";
     public static final String ACCOUNT_FEE = "SYS-FEE";
-
-    private AppConstants() {
-    }
 }

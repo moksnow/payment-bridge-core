@@ -39,8 +39,8 @@ public class PaymentService {
     private final PaymentValidator paymentValidator;
     private final WalletService walletService;
     private final FxService fxService;
-    private final KycService        kycService;
-    private final AmlService        amlService;
+    private final KycService kycService;
+    private final AmlService amlService;
 
     @Transactional
     public PaymentResponse initiate(CreatePaymentRequest req, String idempotencyKey) {

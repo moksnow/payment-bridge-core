@@ -35,7 +35,7 @@ public class PaymentValidator {
     private static final Map<PaymentRailType, Set<Currency>> RAIL_CURRENCY_SUPPORT = Map.of(
             PaymentRailType.MOCK, EnumSet.allOf(Currency.class),
             PaymentRailType.STRIPE, EnumSet.of(Currency.USD, Currency.EUR, Currency.GBP),
-            PaymentRailType.CBDC_SANDBOX, EnumSet.of(Currency.USDC, Currency.USDT)
+            PaymentRailType.CBDC_SANDBOX, EnumSet.of(Currency.USDC, Currency.USDT, Currency.USD, Currency.EUR, Currency.GBP)
     );
 
     private final WalletService walletService;

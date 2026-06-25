@@ -7,14 +7,22 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum Currency {
 
-    USD("US Dollar", 2),
-    EUR("Euro", 2),
-    GBP("British Pound", 2),
-    AED("UAE Dirham", 2),
-    TRY("Turkish Lira", 2),
-    USDT("Tether USD", 6),
-    USDC("USD Coin", 6);
+    // ── Fiat ──
+    USD("US Dollar", 2, true),
+    EUR("Euro", 2, true),
+    GBP("British Pound", 2, true),
+    AED("UAE Dirham", 2, true),
+    TRY("Turkish Lira", 2, true),
+
+    // ── Stablecoin / CBDC ──
+    USDT("Tether USD", 6, false),
+    USDC("USD Coin", 6, false);
 
     private final String displayName;
     private final int decimalPlaces;
+    private final boolean fiat;
+
+    public boolean isCbdc() {
+        return !fiat;
+    }
 }

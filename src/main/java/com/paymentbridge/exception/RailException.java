@@ -15,4 +15,11 @@ public class RailException extends BusinessException {
               "Rail [" + rail.name() + "] error: " + message,
               HttpStatus.BAD_GATEWAY);
     }
+
+    public RailException(PaymentRailType rail, String message, Throwable cause) {
+        super("RAIL_ERROR",
+              "Rail [" + rail.name() + "] error: " + message,
+              HttpStatus.BAD_GATEWAY,
+              cause);
+    }
 }

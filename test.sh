@@ -342,6 +342,95 @@ FLAG_COUNT=$(echo "$BODY" | grep -o '"status"' | wc -l)
 print_ok "AML entries recorded: $FLAG_COUNT"
 echo "$BODY"
 
+
+# ============================================================
+#  STEP 16: CBDC Payment (USDC)
+# ============================================================
+print_step "16" "CBDC Payment — 10 USDC (CBDC_SANDBOX)"
+
+# ابتدا wallet USDC برای sender و receiver بساز
+curl -s -X POST "$BASE_URL/v1/wallets?currency=USDC" \
+  -H "Authorization: Bearer $SENDER_TOKEN" > /dev/null
+
+curl -s -X POST "$BASE_URL/v1/wallets?currency=USDC" \
+  -H "Authorization: Bearer $RECEIVER_TOKEN" > /dev/null
+
+# deposit USDC به sender
+curl -s -X POST "$BASE_URL/v1/wallets/deposit" \
+  -H "Authorization: Bearer $SENDER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 100.00, "currency": "USDC"}' > /dev/null
+
+RECEIVER_USDC_ACCOUNT="WALLET-${RECEIVER_USER_ID}-USDC"
+IDEM_KEY_CBDC="pay-$(date +%s)-cbdc"
+
+BODY=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/v1/payments" \
+  -H "Authorization: Bearer $SENDER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: $IDEM_KEY_CBDC" \
+  -d "{
+    \"receiverWalletAccountCode\": \"$RECEIVER_USDC_ACCOUNT\",
+    \"amount\": 10.00,
+    \"currency\": \"USDC\",
+    \"railType\": \"CBDC_SANDBOX\",
+    \"description\": \"cbdc test payment\"
+  }")
+
+HTTP_STATUS=$(echo "$BODY" | tail -1)
+BODY=$(echo "$BODY" | sed '$d')
+check_status "$HTTP_STATUS" 201 "CBDC payment"
+
+CBDC_PAYMENT_ID=$(json_field "$BODY" "id")
+CBDC_STATUS=$(json_field "$BODY" "status")
+CBDC_REF=$(json_field "$BODY" "externalRef")
+print_info "CBDC Payment ID: $CBDC_PAYMENT_ID"
+print_info "Status: $CBDC_STATUS | Network Ref: $CBDC_REF"
+
+
+# ============================================================
+#  STEP 17: CBDC Mint (USD → USDC)
+# ============================================================
+print_step "17" "CBDC Mint — 50 USD → USDC (Fiat to Digital)"
+
+curl -s -X PUT "$BASE_URL/v1/compliance/kyc/$SENDER_USER_ID" \
+  -H "Authorization: Bearer $SENDER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"kycLevel": "FULL", "notes": "upgraded for CBDC mint test"}' > /dev/null
+
+curl -s -X POST "$BASE_URL/v1/wallets?currency=USDC" \
+  -H "Authorization: Bearer $RECEIVER_TOKEN" > /dev/null
+
+IDEM_KEY_MINT="pay-$(date +%s)-mint"
+BODY=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/v1/payments" \
+  -H "Authorization: Bearer $SENDER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: $IDEM_KEY_MINT" \
+  -d "{
+    \"receiverWalletAccountCode\": \"$RECEIVER_USDC_ACCOUNT\",
+    \"amount\": 50.00,
+    \"currency\": \"USD\",
+    \"receiveCurrency\": \"USDC\",
+    \"railType\": \"CBDC_SANDBOX\",
+    \"description\": \"mint usdc from usd\"
+  }")
+
+HTTP_STATUS=$(echo "$BODY" | tail -1)
+BODY=$(echo "$BODY" | sed '$d')
+check_status "$HTTP_STATUS" 201 "CBDC MINT (USD→USDC)"
+
+MINT_STATUS=$(json_field "$BODY" "status")
+MINT_REF=$(json_field "$BODY" "externalRef")
+print_info "Mint Status: $MINT_STATUS | Network Ref: $MINT_REF"
+
+# ============================================================
+#  STEP 18: Query CBDC Networks
+# ============================================================
+print_step "18" "Query CBDC Networks"
+
+BODY=$(curl -s -X GET "$BASE_URL/cbdc-sandbox/networks")
+print_ok "CBDC networks available"
+echo "$BODY"
+
 # ============================================================
 #  Summary
 # ============================================================
@@ -353,5 +442,6 @@ echo ""
 echo -e "  Sender ID     : $SENDER_USER_ID"
 echo -e "  Receiver ID   : $RECEIVER_USER_ID"
 echo -e "  USD Payment   : $PAYMENT_ID"
-echo -e "  FX  Payment   : $FX_PAYMENT_ID"
+echo -e "  FX  Payment   : $FX_PAYMENT_ID
+  CBDC Payment  : $CBDC_PAYMENT_ID"
 echo ""

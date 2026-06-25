@@ -431,6 +431,52 @@ BODY=$(curl -s -X GET "$BASE_URL/cbdc-sandbox/networks")
 print_ok "CBDC networks available"
 echo "$BODY"
 
+
+# ============================================================
+#  STEP 19: CBDC Swap (USDC → USDT cross-network)
+# ============================================================
+print_step "19" "CBDC Swap — 5 USDC → USDT (BIS mBridge)"
+
+# ایجاد wallet USDT برای receiver
+curl -s -X POST "$BASE_URL/v1/wallets?currency=USDT" \
+  -H "Authorization: Bearer $RECEIVER_TOKEN" > /dev/null
+
+RECEIVER_USDT_ACCOUNT="WALLET-${RECEIVER_USER_ID}-USDT"
+IDEM_KEY_SWAP="pay-$(date +%s)-swap"
+
+BODY=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/v1/payments" \
+  -H "Authorization: Bearer $SENDER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: $IDEM_KEY_SWAP" \
+  -d "{
+    \"receiverWalletAccountCode\": \"$RECEIVER_USDT_ACCOUNT\",
+    \"amount\": 5.00,
+    \"currency\": \"USDC\",
+    \"receiveCurrency\": \"USDT\",
+    \"railType\": \"CBDC_SANDBOX\",
+    \"description\": \"cross-network swap usdc to usdt\"
+  }")
+
+HTTP_STATUS=$(echo "$BODY" | tail -1)
+BODY=$(echo "$BODY" | sed '$d')
+check_status "$HTTP_STATUS" 201 "CBDC SWAP (USDC→USDT via BIS mBridge)"
+
+SWAP_STATUS=$(json_field "$BODY" "status")
+SWAP_REF=$(json_field "$BODY" "externalRef")
+print_info "Swap Status: $SWAP_STATUS | Network Ref: $SWAP_REF"
+
+# ============================================================
+#  STEP 20: View Ledger for CBDC Payment
+# ============================================================
+print_step "20" "View Ledger for CBDC Transfer"
+
+BODY=$(curl -s -X GET "$BASE_URL/v1/ledger/payments/$CBDC_PAYMENT_ID" \
+  -H "Authorization: Bearer $SENDER_TOKEN")
+
+ENTRY_COUNT=$(echo "$BODY" | grep -o '"entryType"' | wc -l)
+print_ok "CBDC ledger entries: $ENTRY_COUNT (expected 2)"
+echo "$BODY"
+
 # ============================================================
 #  Summary
 # ============================================================

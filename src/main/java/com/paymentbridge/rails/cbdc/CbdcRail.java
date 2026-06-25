@@ -48,7 +48,10 @@ public class CbdcRail implements PaymentRail {
 
     private static final Set<Currency> SUPPORTED_CURRENCIES = EnumSet.of(
             Currency.USDC,
-            Currency.USDT
+            Currency.USDT,
+            Currency.USD,
+            Currency.EUR,
+            Currency.GBP
     );
 
     private final CbdcProperties cbdcProperties;

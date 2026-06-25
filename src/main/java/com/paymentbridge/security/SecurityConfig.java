@@ -23,6 +23,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
 
+    private final JwtFilter jwtFilter;
+
     private static final String[] PUBLIC_PATHS = {
             "/v1/auth/**",
             "/swagger-ui/**",
@@ -31,7 +33,6 @@ public class SecurityConfig {
             "/h2-console/**",
             "/cbdc-sandbox/**"
     };
-    private final JwtFilter jwtFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {

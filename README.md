@@ -1,23 +1,21 @@
-# Payment Bridge
+# Payment Bridge Core
 
 [![Java](https://img.shields.io/badge/Java-21-blue.svg)](https://openjdk.org/projects/jdk/21/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.x-brightgreen.svg)](https://spring.io/projects/spring-boot)
 [![Build](https://img.shields.io/badge/Build-Active-orange.svg)]()
 [![License](https://img.shields.io/badge/License-Internal-lightgrey.svg)]()
 
-> A backend-first fintech infrastructure prototype for exploring payments, wallets, ledgers, and payment rails.
+> A backend-first fintech infrastructure prototype exploring payments, wallets, ledgers, FX conversion, KYC/AML compliance, and CBDC bridge infrastructure.
 
 ---
 
 ## Overview
 
-Payment Bridge is a fintech infrastructure prototype that models how modern payment systems handle authentication, wallet management, payment execution, external payment rails, and financial record keeping.
+Payment Bridge Core is a fintech infrastructure prototype that models how modern payment systems work under the hood — from JWT auth and wallet management through FX conversion, compliance rules, and CBDC settlement via ISO 20022 messaging.
 
-The project is being developed incrementally to explore the architectural building blocks behind real-world financial platforms and future CBDC-oriented systems.
+The goal is not to build a production bank.
 
-The goal is not to build a production bank or payment processor.
-
-The goal is to understand the engineering concepts, system boundaries, and architectural decisions that power modern financial software.
+The goal is to understand the engineering concepts, system boundaries, and architectural decisions that power modern financial infrastructure — including the emerging CBDC ecosystem.
 
 ---
 
@@ -27,44 +25,28 @@ Most developers integrate payment APIs without seeing the infrastructure that si
 
 This project explores:
 
-- payment processing workflows
-- wallet and balance management
-- ledger-driven transaction recording
+- payment processing workflows and lifecycle
+- wallet and balance management (ledger-backed)
+- double-entry ledger recording
 - payment rail abstraction
 - FX conversion and multi-currency support
-- KYC and AML compliance rules
-- financial system architecture
-- future CBDC concepts
+- KYC level enforcement and AML pattern detection
+- CBDC bridge: MINT, REDEEM, TRANSFER, SWAP operations
+- ISO 20022 messaging standard (pacs.008 / pacs.002)
 
 ---
 
 ## Tech Stack
 
 | Category | Technology            |
-|-----------|------------|
+|---------------|-------------------------|
 | Language | Java 21               |
 | Framework | Spring Boot 3.5.x |
 | Security | Spring Security + JWT |
-| Database | H2                    |
+| Database      | H2 (in-memory)          |
 | Migration | Flyway                |
 | Documentation | OpenAPI / Swagger     |
 | Testing | JUnit 5, Mockito      |
-
----
-
-## Current Capabilities
-
-The system currently supports:
-
-- User registration and authentication
-- JWT-based authorization
-- Wallet creation and balance management
-- Payment initiation and processing
-- FX currency conversion (mock and real providers)
-- Stripe sandbox integration
-- KYC level enforcement per transaction
-- AML daily limit and structuring detection
-- Internal ledger recording
 
 ---
 
@@ -77,17 +59,13 @@ User
 Auth & JWT
  │
  ▼
-Wallet
+Wallet (balance from ledger)
  │
  ▼
 Payment Service
  │
- ├── KYC Check
- │       └── KycService (level-based limits)
- │
- ├── AML Check
- │       └── AmlService (daily limit + structuring)
- │
+ ├── KYC Check (level-based tx limit)
+ ├── AML Check (daily limit + structuring)
  ├── FX Service (optional conversion)
  │       ├── MockFxRateProvider (default)
  │       └── ExchangeRatesApiFxProvider (real)
@@ -96,11 +74,18 @@ Payment Service
 RailRouter
  │
  ├── MockRail (local testing)
+ ├── StripeRail       (Stripe sandbox)
+ └── CbdcRail         (ISO 20022)
  │
- └── StripeRail (sandbox)
+      ├── CbdcBridgeResolver (MINT/REDEEM/TRANSFER/SWAP)
+      │
+      └── CbdcSandboxServer (internal mock network)
+           ├── ECB Sandbox  (USDC proxy)
+           ├── FED Sandbox  (USDT proxy)
+           └── BIS mBridge  (cross-network SWAP)
       │
       ▼
- Ledger Service
+      Ledger Service (DEBIT + CREDIT)
 ```
 
 ---
@@ -108,13 +93,7 @@ RailRouter
 ## Transaction Flow
 
 ```text
-Register User
-      ↓
-Authenticate
-      ↓
-Create Wallet
-      ↓
-Deposit Funds
+Register → Authenticate → Create Wallet → Deposit Funds
       ↓
 Initiate Payment
       ↓
@@ -126,7 +105,7 @@ FX Conversion (if receiveCurrency differs)
       ↓
 AML Check (daily limit + structuring detection)
       ↓
-RailRouter → MockRail or StripeRail
+RailRouter → MockRail | StripeRail | CbdcRail
       ↓
 Record Ledger Entry (DEBIT sender / CREDIT receiver)
 ```
@@ -135,29 +114,45 @@ Record Ledger Entry (DEBIT sender / CREDIT receiver)
 
 ## Quick Start
 
-Once the application is running on `http://localhost:8080`, use the following sequence to test the full payment flow.
+Application runs on `http://localhost:8080/api`.
 
-Swagger UI is available at `http://localhost:8080/api/swagger-ui.html`.
+Swagger UI: `http://localhost:8080/api/swagger-ui.html`
 
-### 1. Register
+---
 
+## API Endpoints
+
+### Auth
+
+#### Register
 ```bash
 curl -X POST http://localhost:8080/api/v1/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"email": "user@example.com", "password": "password123"}'
+  -d '{"email": "user@example.com", "password": "Password123!"}'
 ```
 
-Save the `token` and `userId` from the response.
+Save `token` and `userId` from the response.
 
-### 2. Create Wallet
+#### Login
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "password": "Password123!"}'
+```
 
+---
+
+### Wallets
+
+#### Create Wallet
 ```bash
 curl -X POST "http://localhost:8080/api/v1/wallets?currency=USD" \
   -H "Authorization: Bearer <token>"
 ```
 
-### 3. Deposit Funds (sandbox)
+Supported currencies: `USD`, `EUR`, `GBP`, `AED`, `TRY`, `USDC`, `USDT`
 
+#### Deposit Funds (sandbox only)
 ```bash
 curl -X POST http://localhost:8080/api/v1/wallets/deposit \
   -H "Authorization: Bearer <token>" \
@@ -165,17 +160,23 @@ curl -X POST http://localhost:8080/api/v1/wallets/deposit \
   -d '{"amount": 1000.00, "currency": "USD"}'
 ```
 
-### 4. Check KYC Level
+#### Get My Wallets
+```bash
+curl -X GET http://localhost:8080/api/v1/wallets \
+  -H "Authorization: Bearer <token>"
+```
 
+---
+
+### Compliance (KYC / AML)
+
+#### Get My KYC Level
 ```bash
 curl -X GET http://localhost:8080/api/v1/compliance/kyc/me \
   -H "Authorization: Bearer <token>"
 ```
 
-Default level is `UNVERIFIED` — max transaction `100 USD`, daily limit `500 USD`.
-
-### 5. Upgrade KYC Level
-
+#### Upgrade KYC Level
 ```bash
 curl -X PUT http://localhost:8080/api/v1/compliance/kyc/{userId} \
   -H "Authorization: Bearer <token>" \
@@ -183,8 +184,19 @@ curl -X PUT http://localhost:8080/api/v1/compliance/kyc/{userId} \
   -d '{"kycLevel": "BASIC", "notes": "verified manually"}'
 ```
 
-### 6. Initiate Payment (same currency)
+#### Get My AML Flags
+```bash
+curl -X GET http://localhost:8080/api/v1/compliance/aml/me \
+  -H "Authorization: Bearer <token>"
+```
 
+---
+
+### Payments
+
+All payment requests require `X-Idempotency-Key` header.
+
+#### Payment — same currency (MockRail)
 ```bash
 curl -X POST http://localhost:8080/api/v1/payments \
   -H "Authorization: Bearer <token>" \
@@ -199,8 +211,7 @@ curl -X POST http://localhost:8080/api/v1/payments \
   }'
 ```
 
-### 7. Initiate Payment with FX conversion
-
+#### Payment — with FX conversion
 ```bash
 curl -X POST http://localhost:8080/api/v1/payments \
   -H "Authorization: Bearer <token>" \
@@ -216,62 +227,27 @@ curl -X POST http://localhost:8080/api/v1/payments \
   }'
 ```
 
-### 8. Check Balance
+Response includes `receiveAmount`, `receiveCurrency`, `fxRate`.
 
-```bash
-curl -X GET http://localhost:8080/api/v1/wallets \
-  -H "Authorization: Bearer <token>"
-```
-
-### 9. View Ledger
-
-```bash
-curl -X GET http://localhost:8080/api/v1/ledger/payments/{paymentId} \
-  -H "Authorization: Bearer <token>"
-```
-
-### 10. View Account History
-
-```bash
-curl -X GET "http://localhost:8080/api/v1/ledger/accounts/WALLET-{userId}-USD" \
-  -H "Authorization: Bearer <token>"
-```
-
-### 11. Simulate a Failed Payment
-
+#### Payment — Stripe sandbox
 ```bash
 curl -X POST http://localhost:8080/api/v1/payments \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
-  -H "X-Idempotency-Key: pay-003" \
+  -H "X-Idempotency-Key: pay-stripe-001" \
   -d '{
     "receiverWalletAccountCode": "WALLET-{receiverUserId}-USD",
     "amount": 50.00,
     "currency": "USD",
-    "railType": "MOCK",
-    "description": "fail this payment"
+    "railType": "STRIPE",
+    "description": "stripe payment"
   }'
 ```
 
-### 12. View AML Flags
+Requires VPN and `STRIPE_API_KEY` environment variable.
 
+#### CBDC Transfer (USDC → USDC)
 ```bash
-curl -X GET http://localhost:8080/api/v1/compliance/aml/me \
-  -H "Authorization: Bearer <token>"
-```
-
-### 13. CBDC Transfer (USDC → USDC)
-
-```bash
-# First create USDC wallets and deposit
-curl -X POST "http://localhost:8080/api/v1/wallets?currency=USDC" \
-  -H "Authorization: Bearer <token>"
-
-curl -X POST http://localhost:8080/api/v1/wallets/deposit \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"amount": 100.00, "currency": "USDC"}'
-
 curl -X POST http://localhost:8080/api/v1/payments \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
@@ -285,10 +261,9 @@ curl -X POST http://localhost:8080/api/v1/payments \
   }'
 ```
 
-Response includes `externalRef` with CBDC network transaction ID (e.g. `CBDC-A1B2C3D4E5F6`).
+Operation: `TRANSFER` → Network: `ECB_SANDBOX` → Status: `STLD` (immediate)
 
-### 14. CBDC Mint (USD → USDC)
-
+#### CBDC Mint (USD → USDC)
 ```bash
 curl -X POST http://localhost:8080/api/v1/payments \
   -H "Authorization: Bearer <token>" \
@@ -300,50 +275,102 @@ curl -X POST http://localhost:8080/api/v1/payments \
     "currency": "USD",
     "receiveCurrency": "USDC",
     "railType": "CBDC_SANDBOX",
-    "description": "mint usdc from usd"
+    "description": "mint usdc"
   }'
 ```
 
-### 15. Query CBDC Networks
+Operation: `MINT` → Network: `ECB_SANDBOX` → Status: `ACCP`
 
+#### CBDC Swap (USDC → USDT cross-network)
+```bash
+curl -X POST http://localhost:8080/api/v1/payments \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: cbdc-swap-001" \
+  -d '{
+    "receiverWalletAccountCode": "WALLET-{receiverUserId}-USDT",
+    "amount": 10.00,
+    "currency": "USDC",
+    "receiveCurrency": "USDT",
+    "railType": "CBDC_SANDBOX",
+    "description": "cross-network swap"
+  }'
+```
+
+Operation: `SWAP` → Network: `BIS_MBRIDGE` → Status: `ACCP`
+
+#### Simulate Failed Payment
+```bash
+curl -X POST http://localhost:8080/api/v1/payments \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: pay-fail-001" \
+  -d '{
+    "receiverWalletAccountCode": "WALLET-{receiverUserId}-USD",
+    "amount": 50.00,
+    "currency": "USD",
+    "railType": "MOCK",
+    "description": "fail this payment"
+  }'
+```
+
+---
+
+### Ledger
+
+#### Get Ledger for a Payment
+```bash
+curl -X GET http://localhost:8080/api/v1/ledger/payments/{paymentId} \
+  -H "Authorization: Bearer <token>"
+```
+
+#### Get Account History
+```bash
+curl -X GET "http://localhost:8080/api/v1/ledger/accounts/WALLET-{userId}-USD" \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+### CBDC Sandbox (no auth required)
+
+#### Query Available Networks
 ```bash
 curl -X GET http://localhost:8080/api/cbdc-sandbox/networks
+```
+
+#### Query Transaction Status
+```bash
+curl -X GET http://localhost:8080/api/cbdc-sandbox/status/{txId}
 ```
 
 ---
 
 ## Automated Test
 
-A bash script is available to run the full flow end to end.
-
 ```bash
 chmod +x test.sh
 ./test.sh
 ```
 
-The script registers two users, creates wallets, deposits funds, upgrades KYC, runs a USD payment, runs a USD→EUR payment with FX conversion, checks balances, queries the ledger, simulates a failed payment, and verifies idempotency protection.
-
-Each run uses unique idempotency keys so it can be executed multiple times cleanly.
+The script runs 20 steps covering: register, wallets, KYC upgrade, deposit, USD payment, FX payment, CBDC transfer, CBDC mint, balance check, ledger queries, failed payment, idempotency, and AML flags.
 
 ---
 
 ## FX Configuration
 
-Switch between mock and real FX provider in `application.yml`:
-
 ```yaml
 app:
   fx:
-    provider: mock                # default — fixed rates, no API key needed
-    # provider: exchangeratesapi  # real rates from exchangeratesapi.io
+    provider: mock                # default — no API key needed
+    # provider: exchangeratesapi  # real rates
     api-key: your_key_here
 ```
 
-Mock rates (relative to USD):
+Mock rates (USD base):
 
 | Currency | Rate  |
 |----------|-------|
-| USD      | 1.00  |
 | EUR      | 0.91  |
 | GBP      | 0.79  |
 | AED      | 3.67  |
@@ -353,30 +380,10 @@ Mock rates (relative to USD):
 
 ---
 
-
-## CBDC Bridge Operations
-
-| From    | To      | Operation | Network      | Description                    |
-|---------|---------|-----------|--------------|--------------------------------|
-| USD/EUR | USDC    | MINT      | ECB Sandbox  | Fiat enters digital network    |
-| USD/EUR | USDT    | MINT      | FED Sandbox  | Fiat enters digital network    |
-| USDC    | USD/EUR | REDEEM    | ECB Sandbox  | Digital exits to fiat          |
-| USDT    | USD/EUR | REDEEM    | FED Sandbox  | Digital exits to fiat          |
-| USDC    | USDC    | TRANSFER  | ECB Sandbox  | Same-network transfer          |
-| USDT    | USDT    | TRANSFER  | FED Sandbox  | Same-network transfer          |
-| USDC    | USDT    | SWAP      | BIS mBridge  | Cross-network exchange         |
-| USDT    | USDC    | SWAP      | BIS mBridge  | Cross-network exchange         |
-
-CBDC Sandbox status codes follow ISO 20022 pacs.002:
-- `PDNG` — Pending network confirmation
-- `ACCP` — Accepted by network
-- `STLD` — Settled (final, irreversible)
-- `RJCT` — Rejected (with reason code)
-
 ## KYC Levels
 
 | Level      | Max Transaction | Daily Limit |
-|------------|----------------|-------------|
+|------------|----------------|---------------|
 | UNVERIFIED | 100 USD        | 500 USD     |
 | BASIC      | 5,000 USD      | 20,000 USD  |
 | FULL       | 1,000,000 USD  | 1,000,000 USD |
@@ -386,131 +393,95 @@ CBDC Sandbox status codes follow ISO 20022 pacs.002:
 ## AML Rules
 
 | Rule | Description |
-|------|-------------|
+|-------------------|---------------------------------------------------|
 | Daily Limit | Total daily payments cannot exceed KYC daily limit |
 | Structuring | Round amounts ≥ 5,000 are flagged for review |
 
 ---
 
-## Implemented Features
+## CBDC Bridge Operations
 
-### Payment Core
-- payment creation
-- payment lifecycle (PENDING → PROCESSING → COMPLETED / FAILED)
-- status tracking
-- idempotency protection
+| From    | To      | Operation | Network      | ISO 20022 Status |
+|---------|---------|-----------|--------------|------------------|
+| USD/EUR | USDC    | MINT      | ECB Sandbox  | ACCP             |
+| USD/EUR | USDT    | MINT      | FED Sandbox  | ACCP             |
+| USDC    | USD/EUR | REDEEM    | ECB Sandbox  | ACCP             |
+| USDT    | USD/EUR | REDEEM    | FED Sandbox  | ACCP             |
+| USDC    | USDC    | TRANSFER  | ECB Sandbox  | STLD (immediate) |
+| USDT    | USDT    | TRANSFER  | FED Sandbox  | STLD (immediate) |
+| USDC    | USDT    | SWAP      | BIS mBridge  | ACCP             |
+| USDT    | USDC    | SWAP      | BIS mBridge  | ACCP             |
 
-### Auth & User
-- user registration
-- user authentication
-- JWT-based security
+ISO 20022 status codes (pacs.002):
 
-### Wallet
-
-- wallet creation per currency
-- balance derived from ledger (bank-grade)
-- sandbox deposit endpoint
-
-### FX Engine
-
-- pluggable provider interface
-- MockFxRateProvider (default)
-- ExchangeRatesApiFxProvider (real rates)
-
-### Rails
-- MockRail (local testing, fail simulation)
-- StripeRail (Stripe sandbox)
-
-### Compliance
-- KYC level management (UNVERIFIED / BASIC / FULL)
-- transaction limit enforcement per KYC level
-- daily spending limit enforcement
-- AML structuring detection
-- compliance event recording
-
-
-### CBDC Bridge
-- ISO 20022 messaging (pacs.008 / pacs.002)
-- four operation types: MINT, REDEEM, TRANSFER, SWAP
-- multi-network routing: ECB Sandbox, FED Sandbox, BIS mBridge, Internal
-- bridge logic: fiat↔CBDC and cross-network CBDC↔CBDC
-- sandbox server simulating real CBDC network behavior
-- operation-aware settlement lifecycle (PDNG → ACCP/STLD → RJCT)
-
-### Ledger
-
-- double-entry accounting (DEBIT + CREDIT)
-- FX-aware credit entries
-- deposit entries
-- audit trail support
-
----
-
-## Current Progress
-
-```text
-✅ Payment Core
-✅ Auth & User
-✅ StripeRail
-✅ Wallet
-✅ FX Engine
-✅ KYC / AML
-⏳ CBDC Layer
-```
+| Code | Meaning                        |
+|------|--------------------------------|
+| PDNG | Pending network confirmation   |
+| ACCP | Accepted by network            |
+| STLD | Settled — final, irreversible  |
+| RJCT | Rejected (with reason code)    |
 
 ---
 
 ## Project Structure
 
 ```text
-payment-bridge
+payment-bridge-core
 ├── config
 ├── security
 ├── common
-│   └── enums
+│   └── enums (Currency, KycLevel, AmlStatus, CbdcNetwork, CbdcTxStatus, CbdcOperationType)
 ├── exception
 ├── user
 ├── payment
 ├── wallet
 ├── ledger
+├── compliance
+│   ├── entity (KycProfile, AmlFlag)
+│   ├── service (KycService, AmlService)
+│   └── controller (ComplianceController)
 ├── rails
-│   └── stripe
-├── fx
-│   ├── dto
-│   ├── provider
-│   └── service
-└── compliance
-    ├── entity
-    ├── dto
-    ├── repository
-    ├── service
-    └── controller
+│   ├── MockRail
+│   ├── stripe (StripeRail)
+│   └── cbdc
+│       ├── CbdcRail
+│       ├── CbdcBridgeResolver
+│       ├── CbdcProperties
+│       ├── dto (CbdcSettlementRequest, CbdcSettlementResponse)
+│       └── sandbox (CbdcSandboxServer)
+└── fx
+    ├── provider (MockFxRateProvider, ExchangeRatesApiFxProvider)
+    └── service (FxService)
 ```
 
 ---
 
-## Architecture Complete
+## Implemented Features
 
-All planned milestones have been implemented.
-
-The system now supports the full payment infrastructure stack:
-from JWT auth and wallet management through FX conversion,
-KYC/AML compliance, and CBDC settlement via ISO 20022 messaging.
+| Feature          | Status | Notes                                      |
+|------------------|--------|--------------------------------------------|
+| Payment Core     | ✅     | lifecycle, idempotency, status tracking    |
+| Auth & User      | ✅     | JWT, register, login                       |
+| Wallet           | ✅     | multi-currency, balance from ledger        |
+| FX Engine        | ✅     | mock + real provider, pluggable            |
+| StripeRail       | ✅     | Stripe sandbox integration                 |
+| KYC / AML        | ✅     | level-based limits, daily limit, flagging  |
+| CBDC Layer       | ✅     | ISO 20022, 4 operations, 4 networks        |
 
 ---
 
 ## Design Principles
 
-- build the core first
-- keep boundaries clear
-- abstract external providers
-- record every financial event
-- add complexity only when justified
+- build the core first, add complexity only when justified
+- balance derived from ledger — never stored separately
+- every payment rail behind a common interface
+- every financial event recorded in the ledger
+- compliance checks before every payment
 
 ---
 
 ## Disclaimer
 
-This project is intended for educational and architectural exploration purposes only.
+This project is for educational and architectural exploration only.
 
-It is not designed for production use, regulatory compliance, or real-money handling.
+Not designed for production use, regulatory compliance, or real-money handling.

@@ -2,6 +2,7 @@ package com.paymentbridge.rails.cbdc;
 
 import com.paymentbridge.common.enums.CbdcNetwork;
 import com.paymentbridge.common.enums.CbdcOperationType;
+import com.paymentbridge.common.enums.CbdcTxStatus;
 import com.paymentbridge.common.enums.Currency;
 import com.paymentbridge.common.enums.PaymentRailType;
 import com.paymentbridge.exception.RailException;
@@ -38,8 +39,8 @@ import java.util.Set;
 
 /**
  * @author Moh Khandan
- * Date: 06/12/2026
- * Time: 16:37 PM
+ * Date: 06/25/2026
+ * Time: 5:37 PM
  */
 @Slf4j
 @Component
@@ -111,14 +112,20 @@ public class CbdcRail implements PaymentRail {
             log.info("CbdcRail response status=[{}] txId=[{}]",
                     response.getStatus(), response.getTxId());
 
-            // PDNG — sandbox confirms immediately,
-            // but in production this would be asynchronous.
-            if (response.isPending()) {
-                log.info("CbdcRail PDNG — sandbox auto-confirms immediately");
+            if (response.isSettled()) {
+                log.info("CbdcRail STLD txId=[{}]", response.getTxId());
+                return RailResult.success(response.getTxId());
             }
 
-            if (response.isAccepted() || response.isSettled()) {
+            if (response.isAccepted()) {
+                log.info("CbdcRail ACCP txId=[{}]", response.getTxId());
                 return RailResult.success(response.getTxId());
+            }
+
+            if (response.isPending()) {
+                log.warn("CbdcRail PDNG — unexpected in sandbox txId=[{}]", response.getTxId());
+                return RailResult.failure("CBDC_PENDING",
+                        "Transaction is pending network confirmation");
             }
 
             if (response.isRejected()) {

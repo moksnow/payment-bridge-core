@@ -33,8 +33,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * @author Moh Khandan
- * Date: 06/12/2026
- * Time: 16:37 PM
+ * Date: 06/25/2026
+ * Time: 5:37 PM
  */
 @Component
 public class CbdcBridgeResolver {
@@ -81,7 +81,7 @@ public class CbdcBridgeResolver {
         return switch (from) {
             case USDC -> CbdcNetwork.ECB_SANDBOX;
             case USDT -> CbdcNetwork.FED_SANDBOX;
-            case USD, EUR -> to != null && !to.isFiat()
+            case USD, EUR, GBP  -> to != null && !to.isFiat()
                     ? resolveNetwork(to, null)   // MINT: destination network
                     : CbdcNetwork.INTERNAL;
             default -> CbdcNetwork.INTERNAL;

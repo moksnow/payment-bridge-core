@@ -348,14 +348,12 @@ echo "$BODY"
 # ============================================================
 print_step "16" "CBDC Payment — 10 USDC (CBDC_SANDBOX)"
 
-# ابتدا wallet USDC برای sender و receiver بساز
 curl -s -X POST "$BASE_URL/v1/wallets?currency=USDC" \
   -H "Authorization: Bearer $SENDER_TOKEN" > /dev/null
 
 curl -s -X POST "$BASE_URL/v1/wallets?currency=USDC" \
   -H "Authorization: Bearer $RECEIVER_TOKEN" > /dev/null
 
-# deposit USDC به sender
 curl -s -X POST "$BASE_URL/v1/wallets/deposit" \
   -H "Authorization: Bearer $SENDER_TOKEN" \
   -H "Content-Type: application/json" \
@@ -437,7 +435,6 @@ echo "$BODY"
 # ============================================================
 print_step "19" "CBDC Swap — 5 USDC → USDT (BIS mBridge)"
 
-# ایجاد wallet USDT برای receiver
 curl -s -X POST "$BASE_URL/v1/wallets?currency=USDT" \
   -H "Authorization: Bearer $RECEIVER_TOKEN" > /dev/null
 
